@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatSidebar } from "@/components/ai-interface/chat-sidebar";
+import { ChatSidebar } from "@/components/ai-interface/chat/chat-sidebar";
 import InfinityBoard from "@/components/infinity-board/infinity-board";
 import {
 	SidebarInset,

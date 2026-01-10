@@ -9,6 +9,7 @@ type WorkSpaceNode = {
 };
 
 type MindMapWorkspace = {
+	id: string;
 	title: string;
 	nodes: WorkSpaceNode[];
 };
@@ -16,29 +17,55 @@ type MindMapWorkspace = {
 type MindMapActions = {
 	setSelectedNode: (node: AppNode | null) => void;
 	setIsChatBarOpen: () => void;
+	createWorkspace: () => void;
 };
 
 type MindMapStore = {
 	selectedNode: AppNode | null;
-	chatNodes: AppNode[] | null;
 	isChatBarOpen: boolean;
 	actions: MindMapActions;
-	workspaces: MindMapWorkspace[] | null;
+	workspaces: MindMapWorkspace[];
 };
 
 export const useMindMapStore = create<MindMapStore>()(
 	persist(
 		(set) => ({
 			selectedNode: null,
-			chatNodes: null,
 			isChatBarOpen: false,
-			workspaces: null,
+			workspaces: [],
 			actions: {
 				setSelectedNode(node: AppNode | null) {
 					set({ selectedNode: node });
 				},
 				setIsChatBarOpen() {
 					set((state) => ({ isChatBarOpen: !state.isChatBarOpen }));
+				},
+				createWorkspace() {
+					set((state) => ({
+						workspaces: [
+							...state.workspaces,
+							{
+								id: crypto.randomUUID(),
+								title: "New Workspace",
+								nodes: [
+									{
+										node: {
+											id: crypto.randomUUID(),
+											type: "root",
+											position: { x: 0, y: 0 },
+											data: { title: "Main Topic of This Mindspace" },
+										},
+										messages: [],
+									},
+								],
+							},
+						],
+					}));
+				},
+				deleteWorkspace(id: string) {
+					set((state) => ({
+						workspaces: state.workspaces.filter((workspace) => workspace.id !== id),
+					}));
 				},
 			},
 		}),
@@ -47,7 +74,7 @@ export const useMindMapStore = create<MindMapStore>()(
 			partialize: (state) => ({
 				selectedNode: state.selectedNode,
 				isChatBarOpen: state.isChatBarOpen,
-				chatNodes: state.chatNodes,
+				workspaces: state.workspaces,
 			}),
 		}
 	)

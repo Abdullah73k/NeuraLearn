@@ -1,35 +1,67 @@
 "use client";
 
-import { useState } from "react";
-import type { NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { SubtopicNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { useMindMapActions } from "@/store/hooks";
 
 /**
- * Subtopic node branching from the root topic.
- * Styled as a circular badge that emphasizes selection with a darker border.
+ * Subtopic Node Component
+ *
+ * Visual style: Matches the general card style but more squarish/short:
+ * - White background with subtle grey border (border-neutral-200)
+ * - Soft shadow (shadow-sm) and generous rounded corners (rounded-3xl for pill-like effect)
+ * - More square-shaped, not a wide rectangle
+ * - Title displayed clearly in center
+ *
+ * Selection state: When selected, displays a PURPLE border (border-purple-500 + ring-2 ring-purple-200)
+ *
+ * Data contract: Uses data.title (preserved)
  */
-export function SubtopicNodeComponent({
-	data,
-	selected,
-}: NodeProps<SubtopicNode>) {
-	const [title, setTitle] = useState(data.title);
-
+export function SubtopicNode({ id, data, selected }: NodeProps<SubtopicNode>) {
+	const { setSubTopicNodeTitle } = useMindMapActions();
 	return (
 		<div
-			className={`flex h-32 w-32 items-center justify-center rounded-full p-2 text-center ${
-				selected ? "border border-green-300" : ""
-			} bg-green-50`}
+			className={cn(
+				"relative rounded-full border bg-white shadow-sm p-4 w-[160px] h-[160px] flex items-center justify-center transition-all",
+				selected
+					? "border-purple-500 ring-2 ring-purple-200"
+					: "border-neutral-200"
+			)}
 		>
+			{/* Title input - centered */}
 			<Input
-				value={title}
+				value={data.title}
 				onChange={(event) => {
-					const nextTitle = event.target.value;
-					setTitle(nextTitle);
-					// Hook up to a flow-level updater later, e.g. data.onTitleChange?.(nextTitle);
+					setSubTopicNodeTitle(event, id);
 				}}
-				className="w-full bg-transparent text-center text-sm font-semibold text-green-900 border-none focus:outline-none focus:ring-0"
+				className="w-full bg-transparent text-center text-sm font-medium text-neutral-800 border-none focus:outline-none focus:ring-0 px-0 h-auto"
+				placeholder="Subtopic"
 				aria-label="Subtopic title"
+			/>
+
+			{/* React Flow Handles - positioned absolutely */}
+			<Handle type="source" position={Position.Right} id="subtopic-right" />
+			<Handle type="source" position={Position.Top} id="subtopic-top" />
+			<Handle type="source" position={Position.Bottom} id="subtopic-bottom" />
+			<Handle type="source" position={Position.Left} id="subtopic-left" />
+
+			<Handle
+				type="target"
+				position={Position.Right}
+				id="subtopic-right-target"
+			/>
+			<Handle type="target" position={Position.Top} id="subtopic-top-target" />
+			<Handle
+				type="target"
+				position={Position.Bottom}
+				id="subtopic-bottom-target"
+			/>
+			<Handle
+				type="target"
+				position={Position.Left}
+				id="subtopic-left-target"
 			/>
 		</div>
 	);

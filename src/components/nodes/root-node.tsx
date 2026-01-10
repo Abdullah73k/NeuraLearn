@@ -1,37 +1,68 @@
 "use client";
 
 import { useState } from "react";
-import type { NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { RootNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { useGetRootNodeTitle, useMindMapActions } from "@/store/hooks";
 
 /**
- * Root node representing the main topic of the mind-map.
- * Renders a soft, cloud-like pill that highlights when selected.
+ * Root Node Component
+ *
+ * Visual style: Similar to the "output" node but wider and slightly shorter:
+ * - White background with subtle grey border
+ * - Soft shadow and rounded corners
+ * - Wider rectangle design for main topic emphasis
+ * - Larger, bolder title text
+ *
+ * Selection state: When selected, displays a CYAN border (ring-2 ring-cyan-500)
+ *
+ * Data contract: Uses data.title (unchanged)
  */
-export function RootNodeComponent({ data, selected }: NodeProps<RootNode>) {
-	const [title, setTitle] = useState(data.title);
-
+export function RootNode({ data, selected }: NodeProps<RootNode>) {
+	const { setRootNodeTitle } = useMindMapActions();
 	return (
 		<div
-			className={`relative inline-flex min-w-[220px] items-center justify-center px-6 py-3 text-center shadow-sm ${
-				selected ? "border border-gray-300" : ""
-			} bg-[#fff7e6] rounded-full`}
+			className={cn(
+				"relative rounded-2xl border bg-white shadow-sm px-6 py-4 min-w-[280px] min-h-[80px] flex items-center justify-center transition-all",
+				selected ? "border-cyan-500 ring-2 ring-cyan-200" : "border-neutral-200"
+			)}
 		>
-			{/* Optional extra circles to push the cloud vibe without affecting content */}
-			<span className="pointer-events-none absolute -left-4 top-2 h-6 w-6 rounded-full bg-[#fff7e6]/70" />
-			<span className="pointer-events-none absolute -right-3 bottom-1 h-5 w-5 rounded-full bg-[#fff7e6]/70" />
-
+			{/* Main title input - prominent and centered */}
 			<Input
-				value={title}
+				value={data.title}
 				onChange={(event) => {
-					const nextTitle = event.target.value;
-					setTitle(nextTitle);
-					// Later we can sync with React Flow by calling a callback like:
-					// data.onTitleChange?.(nextTitle);
+					setRootNodeTitle(event);
 				}}
-				className="w-full bg-transparent px-0 text-center text-base font-semibold text-gray-800 border-none focus:outline-none focus:ring-0"
+				className="w-full bg-transparent px-0 text-center text-base font-semibold text-neutral-800 border-none focus:outline-none focus:ring-0 h-auto"
+				placeholder="Root topic"
 				aria-label="Root topic title"
+			/>
+
+			{/* React Flow Handles - positioned absolutely */}
+			{/* Top handles */}
+			<Handle type="source" position={Position.Top} id="root-top" />
+
+			{/* Right handles */}
+			<Handle type="source" position={Position.Right} id="root-right" />
+			<Handle
+				type="source"
+				position={Position.Right}
+				id="root-right-2"
+				style={{ top: "70%" }}
+			/>
+
+			{/* Bottom handles */}
+			<Handle type="source" position={Position.Bottom} id="root-bottom" />
+
+			{/* Left handles */}
+			<Handle type="source" position={Position.Left} id="root-left" />
+			<Handle
+				type="source"
+				position={Position.Left}
+				id="root-left-2"
+				style={{ top: "70%" }}
 			/>
 		</div>
 	);

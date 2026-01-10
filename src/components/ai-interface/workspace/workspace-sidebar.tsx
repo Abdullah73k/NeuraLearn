@@ -1,25 +1,15 @@
 "use client";
 
 import { WorkspacesContainer } from "./workspaces-container";
-import { NavUser } from "./nav-user";
 import {
 	Sidebar,
 	SidebarContent,
-	SidebarFooter,
 	SidebarHeader,
 } from "@/components/ui/sidebar";
 import { useMindMapActions, useGetWorkspaces } from "@/store/hooks";
 import { Button } from "@/components/ui/button";
 
-const data = {
-	user: {
-		name: "shadcn",
-		email: "m@example.com",
-		avatar: "/avatars/shadcn.jpg",
-	},
-};
-
-export function BrainGraphHistorySidebar() {
+export function WorkspacesSidebar() {
 	const { createWorkspace } = useMindMapActions();
 	const workspaces = useGetWorkspaces();
 	return (
@@ -41,9 +31,6 @@ export function BrainGraphHistorySidebar() {
 			<SidebarContent>
 				<WorkspacesContainer workspaces={workspaces} />
 			</SidebarContent>
-			<SidebarFooter>
-				<NavUser user={data.user} />
-			</SidebarFooter>
 		</Sidebar>
 	);
 }

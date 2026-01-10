@@ -1,49 +1,78 @@
 "use client";
 
 import { useState } from "react";
-import type { NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { NoteNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "../ui/card";
+import { cn } from "@/lib/utils";
+import { useMindMapActions } from "@/store/hooks";
 
 /**
- * Free-form sticky note node (intentionally non-AI) for quick text capture.
- * Highlights with a stronger orange border when selected.
+ * Note Node Component
+ *
+ * Visual style: Matches the right-hand "output" node in the reference image exactly:
+ * - Tall, rounded-rectangle shape
+ * - White background with subtle grey border (border-neutral-200)
+ * - Soft shadow (shadow-sm) and generous rounded corners (rounded-2xl)
+ * - Header bar showing title, body area showing description
+ *
+ * Selection state: When selected, displays an ORANGE border (border-orange-500 + ring-2 ring-orange-200)
+ *
+ * Data contract: Uses data.title and data.description (both preserved and always displayed)
  */
-export function NoteNodeComponent({ data, selected }: NodeProps<NoteNode>) {
+export function NoteNode({ id, data, selected }: NodeProps<NoteNode>) {
 	const [title, setTitle] = useState(data.title);
 	const [description, setDescription] = useState(data.description);
-
+	const { setNoteNodeTitle, setNoteNodeDescription } = useMindMapActions();
 	return (
-		<Card
-			className={`min-w-[200px] rounded-lg p-3 shadow-sm ${
-				selected ? "border border-orange-300" : ""
-			} bg-orange-50`}
+		<div
+			className={cn(
+				"relative rounded-2xl border bg-white shadow-sm px-4 py-3 min-w-[240px] min-h-[180px] flex flex-col transition-all",
+				selected
+					? "border-orange-500 ring-2 ring-orange-200"
+					: "border-neutral-200"
+			)}
 		>
-			<div className="space-y-1">
+			{/* Header area with title - similar to "output" label in reference */}
+			<div className="mb-3 pb-2 border-b border-neutral-100">
 				<Input
-					value={title}
+					value={data.title}
 					onChange={(event) => {
-						const nextTitle = event.target.value;
-						setTitle(nextTitle);
-						// Syncing back to React Flow can be added later, e.g. data.onTitleChange?.(nextTitle);
+						setNoteNodeTitle(event, id);
 					}}
-					className="w-full bg-transparent text-sm font-semibold text-orange-900 border-none focus:outline-none focus:ring-0"
+					className="w-full bg-transparent text-sm font-medium text-neutral-800 border-none focus:outline-none focus:ring-0 px-0 h-auto"
+					placeholder="Note title"
 					aria-label="Note title"
 				/>
+			</div>
 
+			{/* Body area with description - always visible */}
+			<div className="flex-1">
 				<Textarea
-					value={description}
+					value={data.description}
 					onChange={(event) => {
-						const nextDescription = event.target.value;
-						setDescription(nextDescription);
-						// Likewise, we could later call data.onDescriptionChange?.(nextDescription);
+						setNoteNodeDescription(event, id);
 					}}
-					className="min-h-[80px] max-h-[160px] w-full resize-none bg-transparent text-xs leading-snug text-orange-900 border-none focus:outline-none focus:ring-0"
+					className="min-h-[100px] w-full resize-none bg-transparent text-xs text-neutral-600 border-none focus:outline-none focus:ring-0 px-0 leading-relaxed"
+					placeholder="Add description..."
 					aria-label="Note description"
 				/>
 			</div>
-		</Card>
+
+			{/* React Flow Handles - positioned absolutely */}
+			<Handle type="source" position={Position.Right} id="note-right" />
+			<Handle type="source" position={Position.Top} id="note-top" />
+			<Handle type="source" position={Position.Bottom} id="note-bottom" />
+			<Handle type="source" position={Position.Left} id="note-left" />
+			<Handle type="target" position={Position.Right} id="note-right-target" />
+			<Handle type="target" position={Position.Top} id="note-top-target" />
+			<Handle
+				type="target"
+				position={Position.Bottom}
+				id="note-bottom-target"
+			/>
+			<Handle type="target" position={Position.Left} id="note-left-target" />
+		</div>
 	);
 }

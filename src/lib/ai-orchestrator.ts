@@ -106,25 +106,6 @@ Score < 0.65: Not related, create under root`,
           required: ["node_id"],
         },
       },
-      {
-        name: "web_search",
-        description:
-          "Search web for current info. Only use for latest news/research or fact verification",
-        parameters: {
-          type: SchemaType.OBJECT,
-          properties: {
-            query: {
-              type: SchemaType.STRING,
-              description: "Search query",
-            },
-            num_results: {
-              type: SchemaType.NUMBER,
-              description: "Results (1-5)",
-            },
-          },
-          required: ["query"],
-        },
-      },
     ],
   },
 ];
@@ -270,38 +251,6 @@ async function executeTool(
         title: node.title,
         ancestor_path: node.ancestor_path,
       };
-    }
-
-    case "web_search": {
-      if (!process.env.TAVILY_API_KEY) {
-        return { error: "Web search not configured", results: [] };
-      }
-
-      try {
-        const response = await fetch("https://api.tavily.com/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            api_key: process.env.TAVILY_API_KEY,
-            query: args.query,
-            max_results: Math.min(args.num_results || 3, 5),
-            search_depth: "basic",
-            include_answer: true,
-          }),
-        });
-
-        const data = await response.json();
-        return {
-          answer: data.answer,
-          results: (data.results || []).map((r: any) => ({
-            title: r.title,
-            url: r.url,
-            snippet: r.content,
-          })),
-        };
-      } catch (error) {
-        return { error: "Web search failed", results: [] };
-      }
     }
 
     default:

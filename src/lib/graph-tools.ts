@@ -194,66 +194,6 @@ export async function setActiveNode(
 }
 
 /**
- * Search the web using Tavily API
- */
-export async function webSearch(
-  query: string,
-  numResults: number = 3
-): Promise<{
-  answer?: string;
-  results: Array<{
-    title: string;
-    url: string;
-    snippet: string;
-    score: number;
-  }>;
-  error?: string;
-}> {
-  if (!process.env.TAVILY_API_KEY) {
-    return {
-      error: "Web search not configured",
-      results: [],
-    };
-  }
-
-  try {
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: process.env.TAVILY_API_KEY,
-        query,
-        max_results: Math.min(numResults, 5),
-        search_depth: "basic",
-        include_answer: true,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Tavily API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    return {
-      answer: data.answer || undefined,
-      results: (data.results || []).map((r: any) => ({
-        title: r.title,
-        url: r.url,
-        snippet: r.content,
-        score: r.score,
-      })),
-    };
-  } catch (error) {
-    console.error("Web search error:", error);
-    return {
-      error: "Web search failed",
-      results: [],
-    };
-  }
-}
-
-/**
  * Check similarity thresholds and return match type
  */
 export function getMatchType(

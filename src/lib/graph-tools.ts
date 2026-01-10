@@ -17,6 +17,7 @@ export const RELATED_THRESHOLD = 0.65;
 export async function searchNodes(
   query: string,
   rootId: string,
+  
   topK: number = 5
 ): Promise<{ results: SearchResult[]; message?: string }> {
   const db = await getMongoDb();

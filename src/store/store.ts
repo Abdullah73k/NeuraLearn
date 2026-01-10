@@ -3,29 +3,26 @@ import { create } from "zustand";
 
 type MindMapActions = {
 	setSelectedNode: (node: AppNode | null) => void;
+	setIsChatBarOpen: () => void;
 };
 
 type MindMapStore = {
 	selectedNode: AppNode | null;
+	chatNodes: AppNode[] | null;
+	isChatBarOpen: boolean;
 	actions: MindMapActions;
 };
 
 export const useMindMapStore = create<MindMapStore>((set) => ({
 	selectedNode: null,
+	chatNodes: null,
+	isChatBarOpen: false,
 	actions: {
 		setSelectedNode(node: AppNode | null) {
 			set({ selectedNode: node });
 		},
+		setIsChatBarOpen() {
+			set((state) => ({ isChatBarOpen: !state.isChatBarOpen }));
+		},
 	},
 }));
-
-/**
- * Custom hook which holds all actions.
- * Use to get access to actions object
- * Destructure required action function
- *
- *
- * @returns actions for mind map store.
- */
-export const useMindMapActions = () =>
-	useMindMapStore((state) => state.actions);

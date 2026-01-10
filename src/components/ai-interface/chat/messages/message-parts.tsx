@@ -19,6 +19,7 @@ import {
 	UITools,
 } from "ai";
 import ReadAloudButton from "./read-aloud-button";
+import CreateNodeButton from "./create-node-button";
 
 export type MessagePartsProps = {
 	message: UIMessage<unknown, UIDataTypes, UITools>;
@@ -65,6 +66,7 @@ export default function MessageParts({
 											<CopyIcon className="size-3" />
 										</MessageAction>
 										<ReadAloudButton text={part.text} />
+										<CreateNodeButton text={part.text} messageId={message.id} />
 									</MessageActions>
 								)}
 							</Message>

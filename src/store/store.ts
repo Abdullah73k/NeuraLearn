@@ -273,6 +273,15 @@ export const useMindMapStore = create<MindMapStore>()(
 							activeWorkspaceId: null,
 						}));
 					},
+					renameWorkspace(id: string, newTitle: string) {
+						set((state) => ({
+							workspaces: state.workspaces.map((workspace) =>
+								workspace.id === id
+									? { ...workspace, title: newTitle }
+									: workspace
+							),
+						}));
+					},
 					setActiveWorkspace(id: string) {
 						set(() => ({
 							activeWorkspaceId: id,

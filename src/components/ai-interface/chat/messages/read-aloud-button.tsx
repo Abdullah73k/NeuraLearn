@@ -91,7 +91,6 @@ export default function ReadAloudButton({ text }: ReadAloudButtonProps) {
     return (
       <MessageAction disabled label="Loading...">
         <Loader2Icon className="size-3 animate-spin" />
-        <span>Loading...</span>
       </MessageAction>
     );
   }
@@ -104,7 +103,6 @@ export default function ReadAloudButton({ text }: ReadAloudButtonProps) {
         className="text-red-500 hover:text-red-600"
       >
         <XIcon className="size-3" />
-        <span>Cancel</span>
       </MessageAction>
     );
   }
@@ -112,7 +110,6 @@ export default function ReadAloudButton({ text }: ReadAloudButtonProps) {
   return (
     <MessageAction onClick={handleReadAloud} label="Read Aloud">
       <Volume2Icon className="size-3" />
-      <span>Read Aloud</span>
     </MessageAction>
   );
 }

@@ -12,9 +12,9 @@ import {
 import Chat from "./chat";
 import Image from "next/image";
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function ChatSidebar() {
 	return (
-		<Sidebar variant="floating" {...props}>
+		<Sidebar variant="floating">
 			<SidebarHeader>
 				<SidebarMenu>
 					<SidebarMenuItem>

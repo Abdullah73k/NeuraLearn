@@ -1,6 +1,6 @@
 "use client";
 
-import { AppSidebar } from "@/components/ai-interface/chat-sidebar";
+import { ChatSidebar } from "@/components/ai-interface/chat-sidebar";
 import InfinityBoard from "@/components/infinity-board/infinity-board";
 import {
 	SidebarInset,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { useIsChatBarOpen, useMindMapActions } from "@/store/hooks";
+import { BrainGraphHistorySidebar } from "@/components/ai-interface/brain-graph-workspace-sidebar";
 
 export default function Page() {
 	const isChatBarOpen = useIsChatBarOpen();
@@ -29,7 +30,7 @@ export default function Page() {
 			open={isChatBarOpen}
 			onOpenChange={setIsChatBarOpen}
 		>
-			<AppSidebar />
+			<ChatSidebar />
 			<SidebarInset className="flex-1 h-full">
 				<header className="flex h-16 shrink-0 items-center gap-2 px-4">
 					<SidebarTrigger className="-ml-1" />
@@ -49,6 +50,7 @@ export default function Page() {
 				</header>
 				<InfinityBoard />
 			</SidebarInset>
+			<BrainGraphHistorySidebar />
 		</SidebarProvider>
 	);
 }

@@ -5,7 +5,7 @@ import { persist } from "zustand/middleware";
 
 type WorkSpaceNode = {
 	node: AppNode;
-	messages: UIMessage; // placeholder for when i get
+	messages: UIMessage[]; // placeholder for when i get
 };
 
 type MindMapWorkspace = {
@@ -23,6 +23,7 @@ type MindMapStore = {
 	chatNodes: AppNode[] | null;
 	isChatBarOpen: boolean;
 	actions: MindMapActions;
+	workspaces: MindMapWorkspace[] | null;
 };
 
 export const useMindMapStore = create<MindMapStore>()(
@@ -31,6 +32,7 @@ export const useMindMapStore = create<MindMapStore>()(
 			selectedNode: null,
 			chatNodes: null,
 			isChatBarOpen: false,
+			workspaces: null,
 			actions: {
 				setSelectedNode(node: AppNode | null) {
 					set({ selectedNode: node });

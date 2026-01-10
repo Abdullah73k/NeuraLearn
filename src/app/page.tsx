@@ -3,8 +3,6 @@ import InfinityBoardConfig from "@/components/infinity-board/infinity-board-conf
 
 export default function Home() {
 	return (
-		<InfinityBoard>
-			<InfinityBoardConfig />
-		</InfinityBoard>
+		<InfinityBoard />
 	);
 }

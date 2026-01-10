@@ -2,7 +2,7 @@ import { AppNode } from "@/types/nodes";
 import { create } from "zustand";
 
 type MindMapActions = {
-	setSelectedNode: (node: AppNode) => void;
+	setSelectedNode: (node: AppNode | null) => void;
 };
 
 type MindMapStore = {
@@ -13,7 +13,7 @@ type MindMapStore = {
 export const useMindMapStore = create<MindMapStore>((set) => ({
 	selectedNode: null,
 	actions: {
-		setSelectedNode(node: AppNode) {
+		setSelectedNode(node: AppNode | null) {
 			set({ selectedNode: node });
 		},
 	},
@@ -23,8 +23,8 @@ export const useMindMapStore = create<MindMapStore>((set) => ({
  * Custom hook which holds all actions.
  * Use to get access to actions object
  * Destructure required action function
- * 
- * 
+ *
+ *
  * @returns actions for mind map store.
  */
 export const useMindMapActions = () =>

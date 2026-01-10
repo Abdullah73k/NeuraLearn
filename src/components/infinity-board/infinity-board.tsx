@@ -1,11 +1,10 @@
 "use client";
 
 import { nodeTypes } from "@/lib/node-types-map";
+import { useMindMapActions, useMindMapStore } from "@/store/store";
 import { AppNode } from "@/types/nodes";
 import {
 	ReactFlow,
-	Node,
-	Edge,
 	useNodesState,
 	useEdgesState,
 	OnConnect,
@@ -13,6 +12,7 @@ import {
 	ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import InfinityBoardConfig from "./infinity-board-config";
 
 const initialNodes: AppNode[] = [
 	{
@@ -43,13 +43,11 @@ const initialEdges = [
 	},
 ];
 
-export default function InfinityBoard({
-	children,
-}: {
-	children?: React.ReactNode;
-}) {
+export default function InfinityBoard() {
 	const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 	const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+	const { setSelectedNode } = useMindMapActions();
+	const selectedNode = useMindMapStore((state) => state.selectedNode);
 
 	const onConnect: OnConnect = (params) =>
 		setEdges((edges) => addEdge(params, edges));
@@ -65,10 +63,13 @@ export default function InfinityBoard({
 					onEdgesChange={onEdgesChange}
 					onConnect={onConnect}
 					// This gives u info of the node u click on
-					onSelectionChange={console.log}
+					onSelectionChange={({ nodes }) => {
+						const selectedNode = nodes[0] ? nodes[0] : null;
+						setSelectedNode(selectedNode);
+					}}
 					fitView
 				>
-					{children}
+					<InfinityBoardConfig selectedNode={selectedNode} />
 				</ReactFlow>
 			</div>
 		</ReactFlowProvider>

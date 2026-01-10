@@ -18,6 +18,7 @@ import {
 	UIMessage,
 	UITools,
 } from "ai";
+import ReadAloudButton from "./read-aloud-button";
 
 export type MessagePartsProps = {
 	message: UIMessage<unknown, UIDataTypes, UITools>;
@@ -44,17 +45,20 @@ export default function MessageParts({
 								<MessageContent>
 									<MessageResponse>{part.text}</MessageResponse>
 								</MessageContent>
-								{message.role === "assistant" && i === messages.length - 1 && (
+								{message.role === "assistant" && i === message.parts.length - 1 && (
 									<MessageActions>
-										<MessageAction onClick={() => regenerate()} label="Retry">
-											<RefreshCcwIcon className="size-3" />
-										</MessageAction>
+										{message.id === messages.at(-1)?.id && (
+											<MessageAction onClick={() => regenerate()} label="Retry">
+												<RefreshCcwIcon className="size-3" />
+											</MessageAction>
+										)}
 										<MessageAction
 											onClick={() => navigator.clipboard.writeText(part.text)}
 											label="Copy"
 										>
 											<CopyIcon className="size-3" />
 										</MessageAction>
+										<ReadAloudButton text={part.text} />
 									</MessageActions>
 								)}
 							</Message>

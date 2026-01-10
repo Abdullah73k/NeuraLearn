@@ -1,5 +1,11 @@
 import { AppNode } from "@/types/nodes";
-import { applyNodeChanges, Edge, NodeChange } from "@xyflow/react";
+import {
+	applyNodeChanges,
+	Edge,
+	NodeChange,
+	EdgeChange,
+	applyEdgeChanges,
+} from "@xyflow/react";
 import { UIMessage } from "ai";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -20,7 +26,7 @@ type MindMapActions = {
 
 	setActiveWorkspace: (id: string) => void;
 	onNodesChangeForActive: (changes: NodeChange<AppNode>[]) => void;
-	// onEdgesChangeForActive: (changes: EdgeChange<Edge>[]) => void;
+	onEdgesChangeForActive: (changes: EdgeChange<Edge>[]) => void;
 	// onConnectForActive: (connection: Connection) => void;
 };
 
@@ -32,10 +38,24 @@ type MindMapStore = {
 	activeWorkspaceId: string | null;
 };
 
+const activeWorkspaceHelper = (state: MindMapStore) =>
+	state.workspaces.find(
+		(workspace) => workspace.id === state.activeWorkspaceId
+	);
+
+const updateWorkspaceHelper = (
+	state: MindMapStore,
+	updatedWorkspace: MindMapWorkspace
+) => {
+	return state.workspaces.map((workspace) =>
+		workspace.id === updatedWorkspace.id ? updatedWorkspace : workspace
+	);
+};
+
 export const useMindMapStore = create<MindMapStore>()(
 	persist(
 		(set, get) => ({
-			selectedNode: null,
+			selectedNode: null as AppNode | null,
 			isChatBarOpen: false,
 			workspaces: [],
 			activeWorkspaceId: null,
@@ -86,9 +106,7 @@ export const useMindMapStore = create<MindMapStore>()(
 					const state = get();
 					if (state.workspaces.length === 0) return;
 
-					const activeWorkspace = state.workspaces.find(
-						(workspace) => workspace.id === state.activeWorkspaceId
-					);
+					const activeWorkspace = activeWorkspaceHelper(state);
 
 					if (!activeWorkspace) return;
 
@@ -99,13 +117,30 @@ export const useMindMapStore = create<MindMapStore>()(
 					const updatedWorkspace = {
 						...activeWorkspace,
 						nodes: updatedNodes,
-					};
+					} as MindMapWorkspace;
 					set({
-						workspaces: state.workspaces.map((workspace) =>
-							workspace.id === updatedWorkspace.id
-								? updatedWorkspace
-								: workspace
-						),
+						workspaces: updateWorkspaceHelper(state, updatedWorkspace),
+					});
+				},
+				onEdgesChangeForActive(changes) {
+					const state = get();
+					if (state.workspaces.length === 0) return;
+
+					const activeWorkspace = activeWorkspaceHelper(state);
+
+					if (!activeWorkspace) return;
+
+					const edgesSnapshot = activeWorkspace.edges;
+
+					const updatedEdges = applyEdgeChanges(changes, edgesSnapshot);
+
+					const updatedWorkspace = {
+						...activeWorkspace,
+						edges: updatedEdges,
+					} as MindMapWorkspace;
+
+					set({
+						workspaces: updateWorkspaceHelper(state, updatedWorkspace),
 					});
 				},
 			},

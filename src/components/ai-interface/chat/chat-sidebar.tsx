@@ -1,4 +1,3 @@
-import * as React from "react";
 import AppIcon from "@public/icon.png";
 
 import {

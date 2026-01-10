@@ -64,7 +64,7 @@ export default function InfinityBoard() {
 					className="border m-auto"
 					style={{
 						width: `${isChatBarOpen ? "50dvw" : "80dvw"}`,
-						height: "92dvh",
+						height: "97dvh",
 					}}
 				>
 					<ReactFlow

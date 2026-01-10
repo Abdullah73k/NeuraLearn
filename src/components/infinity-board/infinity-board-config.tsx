@@ -1,6 +1,8 @@
 import { Background, Controls, MiniMap } from "@xyflow/react";
-import { MenubarBottomMiddle } from "./menu-bar";
+import PanelBottomMiddle from "./panels/panel-bottom-middle";
+import PanelTopLeft from "./panels/panel-top-left";
 import { AppNode } from "@/types/nodes";
+import PanelTopMiddle from "./panels/panel-top-middle";
 
 export default function InfinityBoardConfig({
 	selectedNode,
@@ -12,7 +14,9 @@ export default function InfinityBoardConfig({
 			<Background />
 			<Controls />
 			<MiniMap bgColor="grey" zoomable pannable />
-			{selectedNode ? <MenubarBottomMiddle /> : null}
+			{selectedNode ? <PanelBottomMiddle /> : null}
+			<PanelTopLeft />
+			<PanelTopMiddle />
 		</>
 	);
 }

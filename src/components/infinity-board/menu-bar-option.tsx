@@ -1,4 +1,4 @@
-import { MenubarMenu, MenubarTrigger } from "@radix-ui/react-menubar";
+import { MenubarMenu, MenubarTrigger } from "@/components/ui/menubar";
 
 export default function MenuBarOption({ option }: { option: string }) {
 	return (

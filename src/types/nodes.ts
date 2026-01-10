@@ -44,5 +44,3 @@ export type NoteNode = Node<NoteNodeData, "note">;
  * Union representing any node our app can render.
  */
 export type AppNode = RootNode | SubtopicNode | NoteNode;
-
-export type { RootNode, SubtopicNode, NoteNode, AppNode };

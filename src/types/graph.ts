@@ -8,9 +8,8 @@ export interface Node {
   root_id: string;
   tags: string[];
 
-  // Moorcheh integration
-  moorcheh_document_id: string;
-  moorcheh_chunk_ids: string[];
+  // Vector embedding for semantic search (768 dimensions from text-embedding-004)
+  embedding?: number[];
 
   // Metadata
   interaction_count: number;
@@ -27,14 +26,7 @@ export interface NodeInteraction {
   node_id: string;
   user_message: string;
   ai_response: string;
-  moorcheh_sources: MoorchehSource[];
   timestamp: Date;
-}
-
-export interface MoorchehSource {
-  chunk_id: string;
-  score: number;
-  text: string;
 }
 
 export interface RootTopic {
@@ -42,7 +34,6 @@ export interface RootTopic {
   id: string;
   title: string;
   description: string;
-  moorcheh_collection_id: string;
   node_count: number;
   created_at: Date;
 }

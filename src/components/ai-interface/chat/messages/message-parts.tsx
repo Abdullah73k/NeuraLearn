@@ -35,6 +35,12 @@ export default function MessageParts({
 	regenerate,
 	status,
 }: MessagePartsProps) {
+	// Find the index of the last text part
+	const textParts = message.parts
+		.map((part, idx) => ({ part, idx }))
+		.filter(({ part }) => part.type === "text");
+	const lastTextPartIndex = textParts[textParts.length - 1]?.idx;
+
 	return (
 		<>
 			{message.parts.map((part, i) => {
@@ -45,7 +51,7 @@ export default function MessageParts({
 								<MessageContent>
 									<MessageResponse>{part.text}</MessageResponse>
 								</MessageContent>
-								{message.role === "assistant" && i === message.parts.length - 1 && (
+								{message.role === "assistant" && i === lastTextPartIndex && (
 									<MessageActions>
 										{message.id === messages.at(-1)?.id && (
 											<MessageAction onClick={() => regenerate()} label="Retry">

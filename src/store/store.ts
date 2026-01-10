@@ -1,58 +1,16 @@
 import { AppNode } from "@/types/nodes";
+import { MindMapStore, MindMapWorkspace } from "@/types/store.types";
 import {
 	applyNodeChanges,
-	Edge,
-	NodeChange,
-	EdgeChange,
 	applyEdgeChanges,
-	Connection,
 	addEdge,
 } from "@xyflow/react";
-import { UIMessage } from "ai";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-type MindMapWorkspace = {
-	id: string;
-	title: string;
-	nodes: AppNode[];
-	edges: Edge[];
-	messages: Record<string, UIMessage[]>;
-};
-
-type MindMapActions = {
-	setSelectedNode: (node: AppNode | null) => void;
-	setIsChatBarOpen: () => void;
-	createWorkspace: () => void;
-	deleteWorkspace: (id: string) => void;
-
-	setActiveWorkspace: (id: string) => void;
-	onNodesChangeForActive: (changes: NodeChange<AppNode>[]) => void;
-	onEdgesChangeForActive: (changes: EdgeChange<Edge>[]) => void;
-	onConnectForActive: (connection: Connection) => void;
-};
-
-type MindMapStore = {
-	selectedNode: AppNode | null;
-	isChatBarOpen: boolean;
-	actions: MindMapActions;
-	workspaces: MindMapWorkspace[];
-	activeWorkspaceId: string | null;
-};
-
-const activeWorkspaceHelper = (state: MindMapStore) =>
-	state.workspaces.find(
-		(workspace) => workspace.id === state.activeWorkspaceId
-	);
-
-const updateWorkspaceHelper = (
-	state: MindMapStore,
-	updatedWorkspace: MindMapWorkspace
-) => {
-	return state.workspaces.map((workspace) =>
-		workspace.id === updatedWorkspace.id ? updatedWorkspace : workspace
-	);
-};
+import {
+	activeWorkspaceHelper,
+	updateWorkspaceHelper,
+} from "../utils/store.utils";
 
 export const useMindMapStore = create<MindMapStore>()(
 	persist(
@@ -67,6 +25,9 @@ export const useMindMapStore = create<MindMapStore>()(
 				},
 				setIsChatBarOpen() {
 					set((state) => ({ isChatBarOpen: !state.isChatBarOpen }));
+				},
+				getActiveWorkspace() {
+					return activeWorkspaceHelper(get());
 				},
 				createWorkspace() {
 					const newWorkspaceId = crypto.randomUUID();
@@ -100,7 +61,7 @@ export const useMindMapStore = create<MindMapStore>()(
 					}));
 				},
 				setActiveWorkspace(id: string) {
-					set((state) => ({
+					set(() => ({
 						activeWorkspaceId: id,
 					}));
 				},

@@ -2,14 +2,7 @@
 
 import { nodeTypes } from "@/lib/node-types-map";
 import { AppNode } from "@/types/nodes";
-import {
-	ReactFlow,
-	useNodesState,
-	useEdgesState,
-	OnConnect,
-	addEdge,
-	ReactFlowProvider,
-} from "@xyflow/react";
+import { ReactFlow, ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import InfinityBoardConfig from "./infinity-board-config";
 import {
@@ -48,14 +41,22 @@ const initialEdges = [
 ];
 
 export default function InfinityBoard() {
-	const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-	const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-	const { setSelectedNode } = useMindMapActions();
+	const {
+		setSelectedNode,
+		onConnectForActive,
+		onNodesChangeForActive,
+		onEdgesChangeForActive,
+		getActiveWorkspace,
+	} = useMindMapActions();
 	const selectedNode = useGetSelectedNode();
 	const isChatBarOpen = useIsChatBarOpen();
 
-	const onConnect: OnConnect = (params) =>
-		setEdges((edges) => addEdge(params, edges));
+	const activeWorkspace = getActiveWorkspace();
+	const nodes = activeWorkspace?.nodes || [];
+	const edges = activeWorkspace?.edges || [];
+	const onNodesChange = onNodesChangeForActive;
+	const onEdgesChange = onEdgesChangeForActive;
+	const onConnect = onConnectForActive;
 
 	return (
 		<ReactFlowProvider>

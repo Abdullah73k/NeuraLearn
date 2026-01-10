@@ -1,7 +1,6 @@
 "use client";
 
 import { nodeTypes } from "@/lib/node-types-map";
-import { useMindMapActions, useMindMapStore } from "@/store/store";
 import { AppNode } from "@/types/nodes";
 import {
 	ReactFlow,
@@ -13,6 +12,11 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import InfinityBoardConfig from "./infinity-board-config";
+import {
+	useGetSelectedNode,
+	useIsChatBarOpen,
+	useMindMapActions,
+} from "@/store/hooks";
 
 const initialNodes: AppNode[] = [
 	{
@@ -47,14 +51,21 @@ export default function InfinityBoard() {
 	const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 	const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 	const { setSelectedNode } = useMindMapActions();
-	const selectedNode = useMindMapStore((state) => state.selectedNode);
+	const selectedNode = useGetSelectedNode();
+	const isChatBarOpen = useIsChatBarOpen();
 
 	const onConnect: OnConnect = (params) =>
 		setEdges((edges) => addEdge(params, edges));
 
 	return (
 		<ReactFlowProvider>
-			<div style={{ width: "100vw", height: "100vh" }}>
+			<div
+				className="border m-auto"
+				style={{
+					width: `${isChatBarOpen ? "70dvw" : "98dvw"}`,
+					height: "92dvh",
+				}}
+			>
 				<ReactFlow
 					nodes={nodes}
 					edges={edges}
@@ -67,6 +78,7 @@ export default function InfinityBoard() {
 						const selectedNode = nodes[0] ? nodes[0] : null;
 						setSelectedNode(selectedNode);
 					}}
+					fitViewOptions={{ padding: 0.2 }}
 					fitView
 				>
 					<InfinityBoardConfig selectedNode={selectedNode} />

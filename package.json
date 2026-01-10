@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "packageManager": "pnpm@10.26.0",
   "dependencies": {
     "@ai-sdk/google": "^2.0.35",
     "@ai-sdk/react": "^2.0.93",

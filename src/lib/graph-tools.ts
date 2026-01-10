@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { moorcheh } from "./moorcheh/client";
-import { getMongoDb } from "./db/client";
+import { getMongoDb, vectorSearch } from "./db/client";
+import { generateEmbedding, createNodeEmbedding } from "./embeddings";
 import type { Node, RootTopic, SearchResult } from "@/types/graph";
 
 // Thresholds for matching decisions
@@ -10,11 +10,11 @@ export const RELATED_THRESHOLD = 0.65;
 
 /**
  * Graph manipulation tools for AI orchestration
- * These tools allow the AI to search, create, and navigate the knowledge graph
+ * Uses MongoDB Atlas Vector Search + Google text-embedding-004
  */
 
 export const searchNodesTool = tool({
-  description: `Search for existing nodes by semantic similarity using Moorcheh's binary embeddings.
+  description: `Search for existing nodes by semantic similarity using MongoDB Atlas Vector Search.
 Use this to check if a topic already exists before creating a new node.
 Returns nodes with similarity scores (0-1).
 - Score >= 0.85: Exact match, activate this node
@@ -28,7 +28,6 @@ Returns nodes with similarity scores (0-1).
     const db = await getMongoDb();
 
     // Get root node ID from the most recent context
-    // In production, this would come from session context
     const rootTopics = await db
       .collection<RootTopic>("root_topics")
       .find({})
@@ -42,35 +41,28 @@ Returns nodes with similarity scores (0-1).
 
     const rootTopic = rootTopics[0];
 
-    // Use Moorcheh for semantic search
-    const moorchehResults = await moorcheh.searchNodes(
-      rootTopic.moorcheh_collection_id,
-      query,
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(query);
+
+    // Use MongoDB Atlas Vector Search
+    const searchResults = await vectorSearch(
+      queryEmbedding,
+      rootTopic.id,
       top_k
     );
 
-    if (moorchehResults.length === 0) {
+    if (searchResults.length === 0) {
       return { results: [], message: "No matching nodes found" };
     }
 
-    // Enrich with MongoDB metadata
-    const nodeIds = moorchehResults.map((r) => r.node_id);
-    const nodes = await db
-      .collection<Node>("nodes")
-      .find({ id: { $in: nodeIds } })
-      .toArray();
-
-    const results: SearchResult[] = moorchehResults.map((result) => {
-      const node = nodes.find((n) => n.id === result.node_id);
-      return {
-        id: node?.id || result.node_id,
-        title: node?.title || result.title,
-        summary: node?.summary || "",
-        parent_id: node?.parent_id || null,
-        score: result.score,
-        tags: node?.tags || [],
-      };
-    });
+    const results: SearchResult[] = searchResults.map((result: any) => ({
+      id: result.id,
+      title: result.title || "",
+      summary: result.summary || "",
+      parent_id: result.parent_id || null,
+      score: result.score,
+      tags: result.tags || [],
+    }));
 
     return { results };
   },
@@ -161,25 +153,12 @@ The summary should be student-friendly and explain what this topic teaches.`,
       return { error: `Parent node ${parent_id} not found` };
     }
 
-    // Get root topic for Moorcheh collection
-    const rootTopic = await db
-      .collection<RootTopic>("root_topics")
-      .findOne({ id: parent.root_id });
-
-    if (!rootTopic) {
-      return { error: "Root topic not found" };
-    }
-
     const nodeId = crypto.randomUUID();
 
-    // Ingest into Moorcheh for semantic search
-    const { document_id, chunk_ids } = await moorcheh.ingestNodeContent(
-      rootTopic.moorcheh_collection_id,
-      nodeId,
-      { title, summary }
-    );
+    // Generate embedding using Google text-embedding-004
+    const embedding = await createNodeEmbedding(title, summary);
 
-    // Create node in MongoDB
+    // Create node in MongoDB with embedding for vector search
     const node: Omit<Node, "_id"> = {
       id: nodeId,
       title,
@@ -187,8 +166,7 @@ The summary should be student-friendly and explain what this topic teaches.`,
       parent_id,
       root_id: parent.root_id,
       tags: tags || [],
-      moorcheh_document_id: document_id,
-      moorcheh_chunk_ids: chunk_ids,
+      embedding,
       interaction_count: 0,
       last_refined_at: new Date(),
       created_at: new Date(),

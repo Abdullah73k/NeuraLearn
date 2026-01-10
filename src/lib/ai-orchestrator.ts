@@ -1,155 +1,175 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI, FunctionDeclarationSchemaType } from "@google/generative-ai";
 import { buildGraphPrompt, getUIState, getGraphSnapshot } from "./prompt-builder";
 import { graphOrchestratorSystemPrompt } from "@/app/(server)/_relation-prompts/graph-orchestrator";
-import { getMongoDb } from "./db/client";
-import { moorcheh } from "./moorcheh/client";
+import { getMongoDb, vectorSearch } from "./db/client";
+import { generateEmbedding, createNodeEmbedding } from "./embeddings";
 import type { ChatRequest, ChatResponse, Node, RootTopic } from "@/types/graph";
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Initialize Google AI client
+const genAI = new GoogleGenerativeAI(
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY || ""
+);
 
-// Tool definitions for Claude
-const tools: Anthropic.Tool[] = [
+// Tool definitions for Gemini
+const tools = [
   {
-    name: "search_nodes",
-    description: `Search for existing nodes by semantic similarity. Returns nodes with scores (0-1).
+    functionDeclarations: [
+      {
+        name: "search_nodes",
+        description: `Search for existing nodes by semantic similarity. Returns nodes with scores (0-1).
 Score >= 0.85: Exact match, activate this node
-Score >= 0.65: Related topic, create under this node
+Score >= 0.65: Related topic, create under this node  
 Score < 0.65: Not related, create under root`,
-    input_schema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Topic to search for" },
-        top_k: { type: "number", description: "Number of results", default: 5 },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "get_node",
-    description: "Get full details of a node including its children",
-    input_schema: {
-      type: "object",
-      properties: {
-        node_id: { type: "string", description: "Node ID to retrieve" },
-      },
-      required: ["node_id"],
-    },
-  },
-  {
-    name: "get_path_to_root",
-    description: "Get ordered path from root to node for UI animation",
-    input_schema: {
-      type: "object",
-      properties: {
-        node_id: { type: "string", description: "Target node ID" },
-      },
-      required: ["node_id"],
-    },
-  },
-  {
-    name: "create_node",
-    description: "Create a new subtopic node with a clear 1-2 sentence summary",
-    input_schema: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Short topic name (max 50 chars)" },
-        summary: {
-          type: "string",
-          description: "1-2 sentence student-friendly explanation (20-200 chars)",
-        },
-        parent_id: { type: "string", description: "Parent node ID" },
-        tags: {
-          type: "array",
-          items: { type: "string" },
-          description: "Keywords for searchability",
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            query: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: "Topic to search for",
+            },
+            top_k: {
+              type: FunctionDeclarationSchemaType.NUMBER,
+              description: "Number of results (default 5)",
+            },
+          },
+          required: ["query"],
         },
       },
-      required: ["title", "summary", "parent_id"],
-    },
-  },
-  {
-    name: "set_active_node",
-    description: "Switch user's active context to a different node",
-    input_schema: {
-      type: "object",
-      properties: {
-        node_id: { type: "string", description: "Node ID to activate" },
+      {
+        name: "get_node",
+        description: "Get full details of a node including its children",
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            node_id: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: "Node ID to retrieve",
+            },
+          },
+          required: ["node_id"],
+        },
       },
-      required: ["node_id"],
-    },
-  },
-  {
-    name: "web_search",
-    description:
-      "Search web for current info. Only use for latest news/research or fact verification",
-    input_schema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Search query" },
-        num_results: { type: "number", description: "Results (1-5)", default: 3 },
+      {
+        name: "get_path_to_root",
+        description: "Get ordered path from root to node for UI animation",
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            node_id: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: "Target node ID",
+            },
+          },
+          required: ["node_id"],
+        },
       },
-      required: ["query"],
-    },
+      {
+        name: "create_node",
+        description:
+          "Create a new subtopic node with a clear 1-2 sentence summary",
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            title: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: "Short topic name (max 50 chars)",
+            },
+            summary: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description:
+                "1-2 sentence student-friendly explanation (20-200 chars)",
+            },
+            parent_id: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: "Parent node ID",
+            },
+            tags: {
+              type: FunctionDeclarationSchemaType.ARRAY,
+              items: { type: FunctionDeclarationSchemaType.STRING },
+              description: "Keywords for searchability",
+            },
+          },
+          required: ["title", "summary", "parent_id"],
+        },
+      },
+      {
+        name: "set_active_node",
+        description: "Switch user's active context to a different node",
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            node_id: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: "Node ID to activate",
+            },
+          },
+          required: ["node_id"],
+        },
+      },
+      {
+        name: "web_search",
+        description:
+          "Search web for current info. Only use for latest news/research or fact verification",
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            query: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: "Search query",
+            },
+            num_results: {
+              type: FunctionDeclarationSchemaType.NUMBER,
+              description: "Results (1-5)",
+            },
+          },
+          required: ["query"],
+        },
+      },
+    ],
   },
 ];
 
 /**
- * Execute a tool call from Claude
+ * Execute a tool call from Gemini
  */
 async function executeTool(
   name: string,
-  input: Record<string, any>,
+  args: Record<string, any>,
   context: { rootNodeId: string }
 ): Promise<any> {
   const db = await getMongoDb();
 
   switch (name) {
     case "search_nodes": {
-      const rootTopic = await db
-        .collection<RootTopic>("root_topics")
-        .findOne({ id: context.rootNodeId });
+      // Generate embedding for the query
+      const queryEmbedding = await generateEmbedding(args.query);
 
-      if (!rootTopic) {
-        return { results: [], error: "Root topic not found" };
-      }
-
-      const moorchehResults = await moorcheh.searchNodes(
-        rootTopic.moorcheh_collection_id,
-        input.query,
-        input.top_k || 5
+      // Use MongoDB Atlas Vector Search
+      const searchResults = await vectorSearch(
+        queryEmbedding,
+        context.rootNodeId,
+        args.top_k || 5
       );
 
-      const nodeIds = moorchehResults.map((r) => r.node_id);
-      const nodes = await db
-        .collection<Node>("nodes")
-        .find({ id: { $in: nodeIds } })
-        .toArray();
-
       return {
-        results: moorchehResults.map((result) => {
-          const node = nodes.find((n) => n.id === result.node_id);
-          return {
-            id: node?.id || result.node_id,
-            title: node?.title || result.title,
-            summary: node?.summary || "",
-            parent_id: node?.parent_id || null,
-            score: result.score,
-            tags: node?.tags || [],
-          };
-        }),
+        results: searchResults.map((result: any) => ({
+          id: result.id,
+          title: result.title || "",
+          summary: result.summary || "",
+          parent_id: result.parent_id || null,
+          score: result.score,
+          tags: result.tags || [],
+        })),
       };
     }
 
     case "get_node": {
       const node = await db
         .collection<Node>("nodes")
-        .findOne({ id: input.node_id });
+        .findOne({ id: args.node_id });
 
       if (!node) {
-        return { error: `Node ${input.node_id} not found` };
+        return { error: `Node ${args.node_id} not found` };
       }
 
       const children = await db
@@ -172,10 +192,10 @@ async function executeTool(
     case "get_path_to_root": {
       const node = await db
         .collection<Node>("nodes")
-        .findOne({ id: input.node_id });
+        .findOne({ id: args.node_id });
 
       if (!node) {
-        return { error: `Node ${input.node_id} not found`, path: [] };
+        return { error: `Node ${args.node_id} not found`, path: [] };
       }
 
       return { path: node.ancestor_path };
@@ -184,39 +204,26 @@ async function executeTool(
     case "create_node": {
       const parent = await db
         .collection<Node>("nodes")
-        .findOne({ id: input.parent_id });
+        .findOne({ id: args.parent_id });
 
       if (!parent) {
-        return { error: `Parent ${input.parent_id} not found` };
-      }
-
-      const rootTopic = await db
-        .collection<RootTopic>("root_topics")
-        .findOne({ id: parent.root_id });
-
-      if (!rootTopic) {
-        return { error: "Root topic not found" };
+        return { error: `Parent ${args.parent_id} not found` };
       }
 
       const nodeId = crypto.randomUUID();
 
-      // Ingest into Moorcheh
-      const { document_id, chunk_ids } = await moorcheh.ingestNodeContent(
-        rootTopic.moorcheh_collection_id,
-        nodeId,
-        { title: input.title, summary: input.summary }
-      );
+      // Generate embedding using Google text-embedding-004
+      const embedding = await createNodeEmbedding(args.title, args.summary);
 
-      // Create in MongoDB
+      // Create in MongoDB with embedding
       const node: Omit<Node, "_id"> = {
         id: nodeId,
-        title: input.title,
-        summary: input.summary,
-        parent_id: input.parent_id,
+        title: args.title,
+        summary: args.summary,
+        parent_id: args.parent_id,
         root_id: parent.root_id,
-        tags: input.tags || [],
-        moorcheh_document_id: document_id,
-        moorcheh_chunk_ids: chunk_ids,
+        tags: args.tags || [],
+        embedding,
         interaction_count: 0,
         last_refined_at: new Date(),
         created_at: new Date(),
@@ -229,7 +236,7 @@ async function executeTool(
       // Update parent
       await db
         .collection("nodes")
-        .updateOne({ id: input.parent_id }, { $push: { children_ids: nodeId } });
+        .updateOne({ id: args.parent_id }, { $push: { children_ids: nodeId } });
 
       // Update root topic count
       await db
@@ -239,9 +246,9 @@ async function executeTool(
       return {
         created: true,
         id: nodeId,
-        title: input.title,
-        summary: input.summary,
-        parent_id: input.parent_id,
+        title: args.title,
+        summary: args.summary,
+        parent_id: args.parent_id,
         ancestor_path: node.ancestor_path,
       };
     }
@@ -249,14 +256,14 @@ async function executeTool(
     case "set_active_node": {
       const node = await db
         .collection<Node>("nodes")
-        .findOne({ id: input.node_id });
+        .findOne({ id: args.node_id });
 
       if (!node) {
-        return { error: `Node ${input.node_id} not found` };
+        return { error: `Node ${args.node_id} not found` };
       }
 
       return {
-        active_node_id: input.node_id,
+        active_node_id: args.node_id,
         title: node.title,
         ancestor_path: node.ancestor_path,
       };
@@ -273,8 +280,8 @@ async function executeTool(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             api_key: process.env.TAVILY_API_KEY,
-            query: input.query,
-            max_results: Math.min(input.num_results || 3, 5),
+            query: args.query,
+            max_results: Math.min(args.num_results || 3, 5),
             search_depth: "basic",
             include_answer: true,
           }),
@@ -300,7 +307,7 @@ async function executeTool(
 }
 
 /**
- * Main orchestrator function
+ * Main orchestrator function using Gemini
  */
 export async function orchestrateGraphChat(
   req: ChatRequest
@@ -317,77 +324,63 @@ export async function orchestrateGraphChat(
     conversationHistory: req.conversationHistory,
   });
 
-  // 3. Initial Claude call
-  let messages: Anthropic.MessageParam[] = [
-    { role: "user", content: userPrompt },
-  ];
-
-  let response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    system: graphOrchestratorSystemPrompt,
+  // 3. Initialize Gemini model with tools
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash",
+    systemInstruction: graphOrchestratorSystemPrompt,
     tools,
-    messages,
   });
 
-  // 4. Handle tool calls in a loop
-  while (response.stop_reason === "tool_use") {
-    const toolUseBlocks = response.content.filter(
-      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
-    );
+  // 4. Start chat and send initial message
+  const chat = model.startChat({
+    history: [],
+  });
 
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
+  let response = await chat.sendMessage(userPrompt);
+  let result = response.response;
 
-    for (const toolUse of toolUseBlocks) {
-      const result = await executeTool(
-        toolUse.name,
-        toolUse.input as Record<string, any>,
-        { rootNodeId: req.rootNodeId }
-      );
+  // 5. Handle tool calls in a loop
+  while (result.functionCalls() && result.functionCalls()!.length > 0) {
+    const functionCalls = result.functionCalls()!;
+    const functionResponses = [];
 
-      toolResults.push({
-        type: "tool_result",
-        tool_use_id: toolUse.id,
-        content: JSON.stringify(result),
+    for (const call of functionCalls) {
+      const toolResult = await executeTool(call.name, call.args as Record<string, any>, {
+        rootNodeId: req.rootNodeId,
+      });
+
+      functionResponses.push({
+        functionResponse: {
+          name: call.name,
+          response: toolResult,
+        },
       });
     }
 
-    // Continue conversation with tool results
-    messages = [
-      ...messages,
-      { role: "assistant", content: response.content },
-      { role: "user", content: toolResults },
-    ];
-
-    response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      system: graphOrchestratorSystemPrompt,
-      tools,
-      messages,
-    });
+    // Send tool results back
+    response = await chat.sendMessage(functionResponses);
+    result = response.response;
   }
 
-  // 5. Parse final response
-  const textBlock = response.content.find(
-    (block): block is Anthropic.TextBlock => block.type === "text"
-  );
+  // 6. Parse final response
+  const textContent = result.text();
 
-  if (!textBlock) {
-    throw new Error("No text response from Claude");
+  if (!textContent) {
+    throw new Error("No text response from Gemini");
   }
 
   // Try to parse JSON from response
   let decision: ChatResponse;
   try {
-    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
+    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       decision = {
         action: parsed.action || "none",
-        targetNodeId: parsed.target_node_id || req.activeNodeId || req.rootNodeId,
+        targetNodeId:
+          parsed.target_node_id || req.activeNodeId || req.rootNodeId,
         activationPath: parsed.activation_path || [req.rootNodeId],
-        response: parsed.response || textBlock.text,
+        response: parsed.response || textContent,
         newNode: parsed.new_node,
         sources: parsed.sources,
       };
@@ -397,7 +390,7 @@ export async function orchestrateGraphChat(
         action: "none",
         targetNodeId: req.activeNodeId || req.rootNodeId,
         activationPath: [req.rootNodeId],
-        response: textBlock.text,
+        response: textContent,
       };
     }
   } catch (error) {
@@ -406,17 +399,17 @@ export async function orchestrateGraphChat(
       action: "none",
       targetNodeId: req.activeNodeId || req.rootNodeId,
       activationPath: [req.rootNodeId],
-      response: textBlock.text,
+      response: textContent,
     };
   }
 
-  // 6. Track interaction
+  // 7. Track interaction
   await trackNodeInteraction(decision.targetNodeId, {
     userMessage: req.userMessage,
     aiResponse: decision.response,
   });
 
-  // 7. Check if summary needs refinement
+  // 8. Check if summary needs refinement
   const shouldRefine = await checkSummaryRefinement(decision.targetNodeId);
   if (shouldRefine) {
     decision.summaryUpdated = true;
@@ -445,7 +438,6 @@ async function trackNodeInteraction(
       node_id: nodeId,
       user_message: interaction.userMessage,
       ai_response: interaction.aiResponse,
-      moorcheh_sources: [],
       timestamp: new Date(),
     });
   } catch (error) {
@@ -462,7 +454,11 @@ async function checkSummaryRefinement(nodeId: string): Promise<boolean> {
     const node = await db.collection<Node>("nodes").findOne({ id: nodeId });
 
     // Refine every 5 interactions
-    if (!node || node.interaction_count % 5 !== 0 || node.interaction_count === 0) {
+    if (
+      !node ||
+      node.interaction_count % 5 !== 0 ||
+      node.interaction_count === 0
+    ) {
       return false;
     }
 
@@ -493,7 +489,7 @@ async function checkSummaryRefinement(nodeId: string): Promise<boolean> {
       parentSummary: parent?.summary,
     });
 
-    // Update in MongoDB
+    // Update summary in MongoDB
     await db.collection("nodes").updateOne(
       { id: nodeId },
       {
@@ -504,18 +500,14 @@ async function checkSummaryRefinement(nodeId: string): Promise<boolean> {
       }
     );
 
-    // Update in Moorcheh
-    const rootTopic = await db
-      .collection<RootTopic>("root_topics")
-      .findOne({ id: node.root_id });
-
-    if (rootTopic) {
-      await moorcheh.updateNodeContent(
-        rootTopic.moorcheh_collection_id,
-        node.moorcheh_document_id,
-        `# ${node.title}\n\n${refinedSummary}`
-      );
-    }
+    // Re-generate embedding for updated summary
+    const newEmbedding = await createNodeEmbedding(node.title, refinedSummary);
+    await db.collection("nodes").updateOne(
+      { id: nodeId },
+      {
+        $set: { embedding: newEmbedding },
+      }
+    );
 
     return true;
   } catch (error) {

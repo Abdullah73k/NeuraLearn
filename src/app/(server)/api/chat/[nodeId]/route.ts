@@ -22,10 +22,14 @@ export async function POST(
 	console.log("nodeId: ", nodeId);
 	console.log("edges: ", edges);
 	const result = streamText({
-		model: webSearch ? "perplexity/sonar" : google(model),
+		model: google(model),
 		messages: convertToModelMessages(messages),
-		system:
-			"You are a helpful assistant that can answer questions and help with tasks",
+		tools: {
+			google_search: google.tools.googleSearch({}),
+		},
+		system: webSearch
+			? "You are a helpful assistant that can answer questions and help with tasks" // Add web search system prompt
+			: "You are a helpful assistant that can answer questions and help with tasks",
 	});
 	// send sources and reasoning back to the client
 	return result.toUIMessageStreamResponse({

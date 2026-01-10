@@ -1,3 +1,4 @@
+import { activeWorkspaceHelper } from "@/utils/store.utils";
 import { useMindMapStore } from "./store";
 
 /**
@@ -14,8 +15,11 @@ export const useMindMapActions = () =>
 export const useGetSelectedNode = () =>
 	useMindMapStore((state) => state.selectedNode);
 
-export const useGetChatNodes = () =>
-	useMindMapStore((state) => state.chatNodes);
-
 export const useIsChatBarOpen = () =>
 	useMindMapStore((state) => state.isChatBarOpen);
+
+export const useGetActiveWorkspace = () =>
+	useMindMapStore((state) => activeWorkspaceHelper(state));
+
+export const useGetWorkspaces = () =>
+	useMindMapStore((state) => state.workspaces);

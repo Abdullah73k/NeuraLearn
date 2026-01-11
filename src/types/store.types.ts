@@ -29,15 +29,16 @@ export type MindMapActions = {
 	setSubTopicNodeTitle: (
 		event: ChangeEvent<HTMLInputElement>,
 		id: string
-	) => void;
+	) => Promise<void>;
 	setRootNodeTitle: (event: ChangeEvent<HTMLInputElement>) => void;
 	createNodeChatSummary: (nodeId: string, summary: string) => void;
 	appendNodeChat: (nodeId: string, messages: UIMessage[]) => void;
+	addMessageToNode: (nodeId: string, message: UIMessage) => void;
 	closeChatBar: () => void;
 	setCurrentRelationType: (relation: RelationType) => void;
 	setActiveWorkspace: (id: string) => void;
 	createNoteNode: () => void;
-	createSubtopicNode: () => void;
+	createSubtopicNode: () => Promise<void>;
 	loadWorkspacesFromDb: () => Promise<void>;
 	onNodesChangeForActive: (changes: NodeChange<AppNode>[]) => void;
 	onEdgesChangeForActive: (changes: EdgeChange<Edge>[]) => void;

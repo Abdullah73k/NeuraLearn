@@ -10,7 +10,14 @@ export async function getMongoDb(): Promise<Db> {
     throw new Error("MONGODB_URI not defined in environment variables");
   }
 
-  const client = new MongoClient(process.env.MONGODB_URI);
+  const client = new MongoClient(process.env.MONGODB_URI, {
+    // Add TLS options to handle SSL connection issues
+    tls: true,
+    tlsAllowInvalidCertificates: false,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+  });
+  
   await client.connect();
 
   cachedClient = client;

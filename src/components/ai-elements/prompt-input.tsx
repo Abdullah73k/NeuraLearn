@@ -1109,7 +1109,24 @@ export const PromptInputSpeechButton = ({
 
       mediaRecorder.onstop = async () => {
         setIsProcessing(true);
+        
+        // Stop all tracks first
+        stream.getTracks().forEach((track) => track.stop());
+        
+        // Small delay to ensure all chunks are collected
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
+        
+        console.log("Audio chunks collected:", chunksRef.current.length, "Total size:", audioBlob.size);
+
+        // Check if we have valid audio data
+        if (audioBlob.size < 100) {
+          console.error("Audio blob too small, likely no data recorded");
+          setIsProcessing(false);
+          alert("No audio recorded. Please try again and speak into your microphone.");
+          return;
+        }
 
         // Send to server for transcription
         try {
@@ -1166,12 +1183,10 @@ export const PromptInputSpeechButton = ({
           alert("Failed to transcribe audio. Please try again.");
         } finally {
           setIsProcessing(false);
-          // Stop all tracks
-          stream.getTracks().forEach((track) => track.stop());
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(100); // Collect data every 100ms
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
     } catch (error) {

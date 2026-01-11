@@ -15,7 +15,7 @@ import {
 	PromptInputTextarea,
 	PromptInputFooter,
 } from "@/components/ai-elements/prompt-input";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Loader } from "@/components/ai-elements/loader";
 import ChatInputTools from "./chat-input-tools";
@@ -54,6 +54,34 @@ const Chat = () => {
 				console.log("messages", messages);
 			},
 		});
+	
+	// Listen for voice messages that need to be sent to the AI
+	useEffect(() => {
+		const handleVoiceMessage = (event: CustomEvent) => {
+			const { nodeId: voiceNodeId, question } = event.detail;
+			
+			// Only process if this is for the currently selected node
+			if (voiceNodeId === nodeId && question) {
+				// Send the message to the AI
+				sendMessage(
+					{ text: question, files: [] },
+					{
+						body: {
+							model: model,
+							webSearch: webSearch,
+							edges,
+						},
+					}
+				);
+			}
+		};
+
+		window.addEventListener('voice-message-added', handleVoiceMessage as EventListener);
+		return () => {
+			window.removeEventListener('voice-message-added', handleVoiceMessage as EventListener);
+		};
+	}, [nodeId, model, webSearch, edges, sendMessage]);
+
 	const handleSubmit = (message: PromptInputMessage) => {
 		const hasText = Boolean(message.text);
 		const hasAttachments = Boolean(message.files?.length);

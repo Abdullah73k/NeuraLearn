@@ -153,10 +153,21 @@ export async function POST(req: Request) {
         // Clean the question - remove transcription artifacts like "..." at start
         const cleanedQuestion = question.replace(/^\.{2,}\s*/g, '').trim();
         
-        // Extract the main topic from the question for better routing decisions
+        // Extract the main topic/entity from the question for better routing decisions
         const topicPatterns = [
+            // Standard question patterns
             /(?:what is|explain|tell me about|who is|how does|give me an example of|an example of)\s+(?:the\s+)?(.+?)(?:\?|$)/i,
             /(.+?)\s+(?:example|explanation|definition)/i,
+            // Age/attribute questions: "How old is X", "What is X's age"
+            /(?:how old is|what(?:'s| is) the age of|age of)\s+(.+?)(?:\s+(?:as of|on|in|today|now|currently).*)?(?:\?|$)/i,
+            // Attribute questions with name first: "X's age", "X age"
+            /^(.+?)(?:'s)?\s+(?:age|height|weight|birthday|stats|salary|contract)(?:\s+(?:as of|on|in).*)?(?:\?|$)/i,
+            // Questions about someone: "... about X", "... with X", "... for X"
+            /(?:about|with|for|of)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)(?:\s+(?:as of|on|in).*)?(?:\?|$)/i,
+            // Name at start followed by question words: "Austin Reaves how old"
+            /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+(?:how|what|when|where)/i,
+            // Truncated transcriptions: "Old with Austin Reaves" -> extract "Austin Reaves"
+            /(?:old|age|tall|height)\s+(?:is|with|of|for)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i,
         ];
         let extractedTopic = "";
         for (const pattern of topicPatterns) {
@@ -164,6 +175,40 @@ export async function POST(req: Request) {
             if (match && match[1]) {
                 extractedTopic = match[1].trim().replace(/\?$/, '').replace(/^the\s+/i, '');
                 break;
+            }
+        }
+        
+        // HIGH SIMILARITY SHORTCUT: If vector search found a very similar node (>75%), 
+        // and the question mentions that entity, route directly to it
+        const highSimilarityThreshold = 0.75;
+        const topSimilarNode = similarNodes[0];
+        if (topSimilarNode && topSimilarNode.score >= highSimilarityThreshold) {
+            const nodeTitle = (topSimilarNode as any).title?.toLowerCase() || "";
+            const questionLower = cleanedQuestion.toLowerCase();
+            
+            // Extract potential names from the question (capitalized words)
+            const namesInQuestion = cleanedQuestion.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g) || [];
+            
+            // Check if any name in the question matches the top similar node
+            const nameMatchesNode = namesInQuestion.some((name: string) => {
+                const nameLower = name.toLowerCase();
+                // Check if the node title contains this name or vice versa
+                return nodeTitle.includes(nameLower) || nameLower.includes(nodeTitle.split(' ')[0]);
+            });
+            
+            // Also check if the question directly mentions words from the node title
+            const titleWords = nodeTitle.split(/\s+/).filter((w: string) => w.length > 2);
+            const questionMentionsNode = titleWords.some((word: string) => questionLower.includes(word));
+            
+            if (nameMatchesNode || questionMentionsNode) {
+                console.log(`High similarity match (${(topSimilarNode.score * 100).toFixed(1)}%): Routing to "${(topSimilarNode as any).title}"`);
+                return Response.json({
+                    action: "navigate_to_existing",
+                    nodeId: topSimilarNode.id,
+                    nodeTitle: (topSimilarNode as any).title,
+                    reasoning: `High similarity match (${(topSimilarNode.score * 100).toFixed(1)}%) - question mentions "${namesInQuestion.join(', ') || 'related topic'}"`,
+                    question: cleanedQuestion,
+                });
             }
         }
         

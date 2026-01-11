@@ -27,7 +27,28 @@ export const useMindMapStore = create<MindMapStore>()(
 				nodeChatSummaries: {},
 				actions: {
 					setSelectedNode(node) {
-						set({ selectedNode: node });
+						const state = get();
+						const activeWorkspace = activeWorkspaceHelper(state);
+						
+						// Update the selected property on nodes for ReactFlow visual selection
+						if (activeWorkspace) {
+							const updatedNodes = activeWorkspace.nodes.map(n => ({
+								...n,
+								selected: n.id === node?.id,
+							}));
+							
+							const updatedWorkspace = {
+								...activeWorkspace,
+								nodes: updatedNodes,
+							};
+							
+							set({ 
+								selectedNode: node,
+								workspaces: updateWorkspaceHelper(state, updatedWorkspace),
+							});
+						} else {
+							set({ selectedNode: node });
+						}
 					},
 					setIsChatBarOpen() {
 						set({ isChatBarOpen: true });

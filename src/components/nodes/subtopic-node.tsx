@@ -46,6 +46,12 @@ export function SubtopicNode({ id, data, selected }: NodeProps<SubtopicNode>) {
 				onChange={(event) => {
 					setSubTopicNodeTitle(event, id);
 				}}
+				onKeyDown={(event) => {
+					if (event.key === "Enter") {
+						event.preventDefault();
+						event.currentTarget.blur();
+					}
+				}}
 				className="w-full bg-transparent text-center text-sm font-medium text-neutral-800 border-none focus:outline-none focus:ring-0 px-0 h-auto"
 				placeholder="Subtopic"
 				aria-label="Subtopic title"

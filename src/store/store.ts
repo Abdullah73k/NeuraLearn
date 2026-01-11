@@ -129,7 +129,7 @@ export const useMindMapStore = create<MindMapStore>()(
 							console.error("Failed to update node title in DB:", error);
 						}
 					},
-					setRootNodeTitle(event) {
+					async setRootNodeTitle(event) {
 						const state = get();
 						const activeWorkspace = activeWorkspaceHelper(state);
 						if (!activeWorkspace) return;
@@ -137,21 +137,47 @@ export const useMindMapStore = create<MindMapStore>()(
 						const activeWorkspaceRootNode = activeWorkspace.nodes.filter(
 							(node) => node.type === "root"
 						)[0];
+						
+						if (!activeWorkspaceRootNode) return;
+
+						const newTitle = event.target.value;
+
 						const updatedRootNode: RootNode = {
 							...activeWorkspaceRootNode,
 							data: {
 								...activeWorkspaceRootNode.data,
-								title: event.target.value,
+								title: newTitle,
 							},
 						};
 						const updatedWorkspace: MindMapWorkspace = {
 							...activeWorkspace,
+							title: newTitle, // Update workspace title too
 							nodes: activeWorkspace.nodes.map((node) =>
 								node.id === activeWorkspaceRootNode.id ? updatedRootNode : node
 							),
 						};
 
 						set({ workspaces: updateWorkspaceHelper(state, updatedWorkspace) });
+
+						// Update in MongoDB (both topic and node)
+						try {
+							await Promise.all([
+								// Update topic title
+								fetch(`/api/graph/topics/${activeWorkspace.id}`, {
+									method: "PATCH",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ title: newTitle }),
+								}),
+								// Update node title
+								fetch(`/api/graph/nodes/${activeWorkspaceRootNode.id}`, {
+									method: "PATCH",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ title: newTitle }),
+								}),
+							]);
+						} catch (error) {
+							console.error("Failed to update root node title in DB:", error);
+						}
 					},
 					appendNodeChat(nodeId, messages) {
 						const state = get();
@@ -186,25 +212,60 @@ export const useMindMapStore = create<MindMapStore>()(
 							workspaces: updateWorkspaceHelper(state, updatedWorkspace),
 						});
 					},
-					deleteNode(id) {
-						const state = get();
-						if (state.workspaces.length === 0) return;
-						const activeWorkspace = activeWorkspaceHelper(state);
-						if (!activeWorkspace) return;
+				async deleteNode(id) {
+					const state = get();
+					if (state.workspaces.length === 0) return;
+					const activeWorkspace = activeWorkspaceHelper(state);
+					if (!activeWorkspace) return;
+
+					// Find the node to check if it's a root node
+					const nodeToDelete = activeWorkspace.nodes.find((node) => node.id === id);
+					if (!nodeToDelete) return;
+
+					// Prevent deletion of root nodes (they should use deleteWorkspace instead)
+					if (nodeToDelete.type === "root") {
+						console.error("Cannot delete root node directly. Use deleteWorkspace instead.");
+						return;
+					}
+
+					try {
+						// Delete from MongoDB first
+						const response = await fetch(`/api/graph/nodes/${id}`, {
+							method: "DELETE",
+						});
+
+						if (!response.ok) {
+							const error = await response.json();
+							console.error("Failed to delete node from MongoDB:", error);
+							return;
+						}
+
+						const data = await response.json();
+						const deletedIds = data.deleted_ids || [id];
+
+						// Update local state - remove node and all its descendants
 						const nodesSnapshot = activeWorkspace.nodes;
-						const updatedNodes = nodesSnapshot.filter((node) => node.id !== id);
+						const updatedNodes = nodesSnapshot.filter((node) => !deletedIds.includes(node.id));
+						
+						// Clean up messages for deleted nodes
 						const messagesToFilter = { ...activeWorkspace.messages };
-						delete messagesToFilter[id];
+						deletedIds.forEach((nodeId: string) => {
+							delete messagesToFilter[nodeId];
+						});
+
 						set({
 							workspaces: updateWorkspaceHelper(state, {
 								...activeWorkspace,
 								nodes: updatedNodes,
 								edges: activeWorkspace.edges.filter(
-									(edge) => edge.source !== id && edge.target !== id
+									(edge) => !deletedIds.includes(edge.source) && !deletedIds.includes(edge.target)
 								),
 								messages: messagesToFilter,
 							}),
 						});
+					} catch (error) {
+						console.error("Failed to delete node:", error);
+					}
 					},
 					createNoteNode() {
 						const state = get();
@@ -347,13 +408,29 @@ export const useMindMapStore = create<MindMapStore>()(
 							console.error("Failed to create workspace:", error);
 						}
 					},
-					deleteWorkspace(id: string) {
-						set((state) => ({
-							workspaces: state.workspaces.filter(
-								(workspace) => workspace.id !== id
-							),
-							activeWorkspaceId: null,
-						}));
+					async deleteWorkspace(id: string) {
+						try {
+							// Delete from MongoDB first
+							const response = await fetch(`/api/graph/topics/${id}`, {
+								method: "DELETE",
+							});
+
+							if (!response.ok) {
+								const error = await response.json();
+								console.error("Failed to delete workspace from MongoDB:", error);
+								return;
+							}
+
+							// Update local state
+							set((state) => ({
+								workspaces: state.workspaces.filter(
+									(workspace) => workspace.id !== id
+								),
+								activeWorkspaceId: state.activeWorkspaceId === id ? null : state.activeWorkspaceId,
+							}));
+						} catch (error) {
+							console.error("Failed to delete workspace:", error);
+						}
 					},
 					renameWorkspace(id: string, newTitle: string) {
 						set((state) => ({

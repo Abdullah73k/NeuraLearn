@@ -88,6 +88,72 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 }
 
 /**
+ * PATCH /api/graph/topics/[topicId]
+ * 
+ * Update a topic's title or description
+ */
+export async function PATCH(req: NextRequest, { params }: RouteParams) {
+  try {
+    const { topicId } = await params;
+    const body = await req.json();
+
+    const db = await getMongoDb();
+
+    const topic = await db.collection<RootTopic>("root_topics").findOne({ id: topicId });
+
+    if (!topic) {
+      return NextResponse.json(
+        { error: "Topic not found" },
+        { status: 404 }
+      );
+    }
+
+    // Build update object
+    const updates: Partial<RootTopic> = {};
+
+    if (body.title && typeof body.title === "string") {
+      updates.title = body.title.trim().slice(0, 100);
+    }
+
+    if (body.description && typeof body.description === "string") {
+      updates.description = body.description.trim().slice(0, 500);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: "No valid updates provided" },
+        { status: 400 }
+      );
+    }
+
+    // Update topic
+    await db.collection("root_topics").updateOne({ id: topicId }, { $set: updates });
+
+    // Also update the root node's title if title was changed
+    if (updates.title) {
+      await db.collection("nodes").updateOne(
+        { id: topicId, parent_id: null },
+        { $set: { title: updates.title } }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      topic: {
+        id: topicId,
+        ...updates,
+      },
+    });
+  } catch (error) {
+    console.error("Update topic error:", error);
+    return NextResponse.json(
+      { error: "Failed to update topic" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/graph/topics/[topicId]
  * 
  * Delete a topic and all its nodes
@@ -110,16 +176,17 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Delete all nodes for this topic
-    await db.collection("nodes").deleteMany({ root_id: topicId });
-
-    // Delete all interactions for nodes in this topic
+    // Get all node IDs for this topic BEFORE deleting them
     const nodeIds = await db
       .collection<Node>("nodes")
       .find({ root_id: topicId })
       .project({ id: 1 })
       .toArray();
 
+    // Delete all nodes for this topic
+    await db.collection("nodes").deleteMany({ root_id: topicId });
+
+    // Delete all interactions for nodes in this topic
     if (nodeIds.length > 0) {
       await db
         .collection("node_interactions")

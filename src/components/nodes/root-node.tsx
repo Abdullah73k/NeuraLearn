@@ -44,6 +44,12 @@ export function RootNode({ data, selected }: NodeProps<RootNode>) {
 				onChange={(event) => {
 					setRootNodeTitle(event);
 				}}
+				onKeyDown={(event) => {
+					if (event.key === "Enter") {
+						event.preventDefault();
+						event.currentTarget.blur();
+					}
+				}}
 				className="w-full bg-transparent px-0 text-center text-base font-semibold text-neutral-800 border-none focus:outline-none focus:ring-0 h-auto"
 				placeholder="Root topic"
 				aria-label="Root topic title"

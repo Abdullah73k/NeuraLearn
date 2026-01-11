@@ -18,10 +18,12 @@ import {
 import { Button } from "@/components/ui/button";
 
 type RoutingResult = {
-  action: "navigate_to_new" | "navigate_to_existing";
-  nodeId: string;
-  nodeTitle: string;
+  action: "create_new" | "use_existing";
+  nodeId?: string; // Only for use_existing
+  nodeTitle?: string; // Only for use_existing
   parentId?: string;
+  suggestedTitle?: string; // For create_new
+  suggestedSummary?: string; // For create_new
   reasoning: string;
   question: string;
 };
@@ -147,8 +149,31 @@ export default function GlobalMic() {
     if (!routingResult || !activeWorkspace) return;
 
     try {
-      // If a new node was created, we need to refresh the workspace
-      if (routingResult.action === "navigate_to_new") {
+      let targetNodeId = routingResult.nodeId;
+
+      // If creating a new node, create it now (after user confirmed)
+      if (routingResult.action === "create_new") {
+        const createResponse = await fetch("/api/graph/nodes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: routingResult.suggestedTitle,
+            summary: routingResult.suggestedSummary,
+            parent_id: routingResult.parentId,
+          }),
+        });
+
+        if (!createResponse.ok) {
+          const error = await createResponse.json();
+          console.error("Failed to create node:", error);
+          setError("Failed to create node");
+          setState("idle");
+          return;
+        }
+
+        const createData = await createResponse.json();
+        targetNodeId = createData.node.id;
+
         // Reload workspaces to get the new node
         const { useMindMapStore } = await import("@/store/store");
         await useMindMapStore.getState().actions.loadWorkspacesFromDb();
@@ -163,7 +188,7 @@ export default function GlobalMic() {
         w => w.id === activeWorkspace.id
       );
       
-      const targetNode = currentWorkspace?.nodes.find(n => n.id === routingResult.nodeId);
+      const targetNode = currentWorkspace?.nodes.find(n => n.id === targetNodeId);
       
       if (targetNode) {
         // Select the node to open its chat
@@ -180,7 +205,7 @@ export default function GlobalMic() {
         };
         
         // Add the question as a message to the node's chat
-        addMessageToNode(routingResult.nodeId, userMessage);
+        addMessageToNode(targetNodeId, userMessage);
         
         // Wait for Chat component to mount and set up event listener
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -189,12 +214,12 @@ export default function GlobalMic() {
         // The chat component will listen for this and trigger the AI
         window.dispatchEvent(new CustomEvent('voice-message-added', {
           detail: {
-            nodeId: routingResult.nodeId,
+            nodeId: targetNodeId,
             question: routingResult.question,
           }
         }));
       } else {
-        console.error("Could not find target node:", routingResult.nodeId);
+        console.error("Could not find target node:", targetNodeId);
         setError("Failed to find the target node");
       }
 
@@ -247,8 +272,8 @@ export default function GlobalMic() {
   const getRoutingDisplayText = () => {
     if (!routingResult) return "";
     
-    if (routingResult.action === "navigate_to_new") {
-      return `Create new node "${routingResult.nodeTitle}"`;
+    if (routingResult.action === "create_new") {
+      return `Create new node "${routingResult.suggestedTitle}"`;
     } else {
       return `Navigate to "${routingResult.nodeTitle}"`;
     }
@@ -284,7 +309,7 @@ export default function GlobalMic() {
               {/* Routing Decision */}
               <div className="mb-4 p-3 bg-muted/50 rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  {routingResult?.action === "navigate_to_new" ? (
+                  {routingResult?.action === "create_new" ? (
                     <PlusIcon className="size-4 text-green-500" />
                   ) : (
                     <ArrowRightIcon className="size-4 text-blue-500" />

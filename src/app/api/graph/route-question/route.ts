@@ -131,26 +131,23 @@ Respond with your routing decision:`,
 
         const decision = result.object as RoutingDecision;
 
-        // If creating a new node, actually create it
+        // If creating a new node, return the decision without creating yet
+        // Frontend will create after user confirms
         if (decision.action === "create_new" && decision.parentNodeId && decision.suggestedTitle) {
-            const newNode = await createNode({
-                title: decision.suggestedTitle,
-                summary: decision.suggestedSummary || `Exploring: ${decision.suggestedTitle}`,
-                parent_id: decision.parentNodeId,
-            });
-
-            if ("error" in newNode) {
+            // Verify parent exists
+            const parentNode = nodes.find(n => n.id === decision.parentNodeId);
+            if (!parentNode) {
                 return Response.json(
-                    { error: newNode.error },
-                    { status: 500 }
+                    { error: "Parent node not found" },
+                    { status: 404 }
                 );
             }
 
             return Response.json({
-                action: "navigate_to_new",
-                nodeId: newNode.id,
-                nodeTitle: newNode.title,
+                action: "create_new",
                 parentId: decision.parentNodeId,
+                suggestedTitle: decision.suggestedTitle,
+                suggestedSummary: decision.suggestedSummary || `Exploring: ${decision.suggestedTitle}`,
                 reasoning: decision.reasoning,
                 question, // Pass back to be added to chat
             });

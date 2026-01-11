@@ -110,16 +110,17 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Delete all nodes for this topic
-    await db.collection("nodes").deleteMany({ root_id: topicId });
-
-    // Delete all interactions for nodes in this topic
+    // Get all node IDs for this topic BEFORE deleting them
     const nodeIds = await db
       .collection<Node>("nodes")
       .find({ root_id: topicId })
       .project({ id: 1 })
       .toArray();
 
+    // Delete all nodes for this topic
+    await db.collection("nodes").deleteMany({ root_id: topicId });
+
+    // Delete all interactions for nodes in this topic
     if (nodeIds.length > 0) {
       await db
         .collection("node_interactions")

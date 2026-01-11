@@ -56,7 +56,7 @@ export async function POST(req: Request) {
             model: google("gemini-2.0-flash"),
             schema: z.object({
                 action: z.enum(["use_existing", "create_new"]),
-                reasoning: z.string().max(200),
+                reasoning: z.string().max(300),
                 existingNodeId: z.string().optional(),
                 parentNodeId: z.string().optional(),
                 suggestedTitle: z.string().max(50).optional(),
@@ -91,6 +91,7 @@ ${nodeDescriptions}
 - For "Who is X?" questions about people → ALWAYS create_new (people deserve their own nodes)
 - Pick the parent that is most SEMANTICALLY related, not just the root
 - suggestedTitle: MAX 3-4 words (person's name or concept name)
+- reasoning: Be brief and concise (max 250 chars)
 
 Respond with your routing decision:`,
         });

@@ -153,3 +153,86 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     );
   }
 }
+
+/**
+ * DELETE /api/graph/nodes/[nodeId]
+ * 
+ * Delete a node and all its descendants
+ */
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  try {
+    const { nodeId } = await params;
+    const db = await getMongoDb();
+
+    // Get the node to be deleted
+    const node = await db.collection<Node>("nodes").findOne({ id: nodeId });
+
+    if (!node) {
+      return NextResponse.json(
+        { error: "Node not found" },
+        { status: 404 }
+      );
+    }
+
+    // Prevent deletion of root nodes
+    if (node.parent_id === null) {
+      return NextResponse.json(
+        { error: "Cannot delete root topic nodes. Use DELETE /api/graph/topics/[topicId] instead." },
+        { status: 400 }
+      );
+    }
+
+    // Find all descendant nodes recursively
+    const getAllDescendants = async (parentId: string): Promise<string[]> => {
+      const children = await db
+        .collection<Node>("nodes")
+        .find({ parent_id: parentId })
+        .toArray();
+      
+      let descendantIds = children.map(c => c.id);
+      
+      for (const child of children) {
+        const childDescendants = await getAllDescendants(child.id);
+        descendantIds = descendantIds.concat(childDescendants);
+      }
+      
+      return descendantIds;
+    };
+
+    const descendantIds = await getAllDescendants(nodeId);
+    const allNodeIds = [nodeId, ...descendantIds];
+
+    // Delete all nodes (parent and descendants)
+    await db.collection("nodes").deleteMany({ id: { $in: allNodeIds } });
+
+    // Remove from parent's children_ids
+    if (node.parent_id) {
+      await db
+        .collection("nodes")
+        .updateOne(
+          { id: node.parent_id },
+          { $pull: { children_ids: nodeId } as any }
+        );
+    }
+
+    // Update root topic node count
+    await db
+      .collection("root_topics")
+      .updateOne(
+        { id: node.root_id },
+        { $inc: { node_count: -allNodeIds.length } }
+      );
+
+    return NextResponse.json({
+      success: true,
+      deleted_count: allNodeIds.length,
+      deleted_ids: allNodeIds,
+    });
+  } catch (error) {
+    console.error("Delete node error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete node" },
+      { status: 500 }
+    );
+  }
+}

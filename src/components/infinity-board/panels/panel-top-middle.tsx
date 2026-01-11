@@ -33,27 +33,6 @@ export default function PanelTopMiddle() {
 					}}
 					disabled={isDeleteDisabled}
 				/>
-				<MenubarOption option="Auto Layout" onClick={rebalanceLayout} />
-				<MenubarMenu>
-					<MenubarTrigger>Node Relations</MenubarTrigger>
-					<MenubarContent>
-						{relations.map((relation) => (
-							<MenubarItem
-								key={relation}
-								onClick={() =>
-									setCurrentRelationType(relation.toLowerCase() as RelationType)
-								}
-								className={
-									currentRelationType === relation.toLowerCase()
-										? "bg-primary text-primary-foreground"
-										: ""
-								}
-							>
-								{relation[0].toUpperCase() + relation.slice(1)}
-							</MenubarItem>
-						))}
-					</MenubarContent>
-				</MenubarMenu>
 			</Menubar>
 		</Panel>
 	);

@@ -58,15 +58,11 @@ export async function POST(req: Request) {
             }
         }
 
-        // Use vector search to find top 5 most semantically similar nodes
-        const queryEmbedding = await generateEmbedding(question);
-        const similarNodes = await vectorSearch(queryEmbedding, rootId, 5);
-
-        // Fetch ALL nodes in the workspace (for finding exact matches)
+        // Fetch ALL nodes in the workspace first (needed for both vector search fallback and exact matching)
         const allNodes = await db
             .collection<Node>("nodes")
             .find({ root_id: rootId })
-            .project({ id: 1, title: 1, summary: 1, parent_id: 1 })
+            .project({ id: 1, title: 1, summary: 1, parent_id: 1, embedding: 1 })
             .toArray();
 
         if (allNodes.length === 0) {
@@ -74,6 +70,35 @@ export async function POST(req: Request) {
                 { error: "No nodes found in workspace" },
                 { status: 404 }
             );
+        }
+
+        // Debug: Check if nodes have embeddings
+        const nodesWithEmbeddings = allNodes.filter(n => n.embedding && n.embedding.length > 0);
+        console.log(`Nodes in workspace: ${allNodes.length}, Nodes with embeddings: ${nodesWithEmbeddings.length}`);
+
+        // Use vector search to find top 5 most semantically similar nodes
+        const queryEmbedding = await generateEmbedding(question);
+        let similarNodes = await vectorSearch(queryEmbedding, rootId, 5);
+
+        // Debug: Log vector search results to diagnose routing issues
+        console.log("Vector search results for question:", question);
+        console.log("Similar nodes found:", similarNodes.map(n => ({
+            title: (n as any).title,
+            score: n.score,
+            id: n.id
+        })));
+
+        // FALLBACK: If vector search returns empty but nodes exist, use all nodes
+        // This handles cases where vector index isn't set up or nodes lack embeddings
+        if (similarNodes.length === 0 && allNodes.length > 0) {
+            console.log("WARNING: Vector search returned empty. Using all nodes as fallback.");
+            similarNodes = allNodes.map(n => ({
+                id: n.id,
+                title: n.title,
+                summary: n.summary,
+                parent_id: n.parent_id,
+                score: 0.5, // Neutral score since we can't rank them
+            })) as any;
         }
 
         // Build context about the TOP similar nodes (with details)
@@ -125,147 +150,96 @@ export async function POST(req: Request) {
 
         console.log("Proceeding to routing decision with search context:", !!searchContext);
 
+        // Extract the main topic from the question for better routing decisions
+        const questionLower = question.toLowerCase();
+        const topicPatterns = [
+            /(?:what is|explain|tell me about|who is|how does|give me an example of)\s+(?:the\s+)?(.+?)(?:\?|$)/i,
+            /(.+?)\s+(?:example|explanation|definition)/i,
+        ];
+        let extractedTopic = "";
+        for (const pattern of topicPatterns) {
+            const match = question.match(pattern);
+            if (match && match[1]) {
+                extractedTopic = match[1].trim().replace(/\?$/, "");
+                break;
+            }
+        }
+        
+        // Check if a node with this exact topic already exists
+        const topicExistsAsNode = extractedTopic && allNodes.some(n => 
+            n.title.toLowerCase().includes(extractedTopic.toLowerCase()) ||
+            extractedTopic.toLowerCase().includes(n.title.toLowerCase())
+        );
+        
+        console.log("Extracted topic:", extractedTopic, "| Exists as node:", topicExistsAsNode);
+
         // Use AI to determine the best routing
         const result = await generateObject({
             model: google("gemini-2.0-flash"),
             schema: z.object({
                 action: z.enum(["use_existing", "create_new"]),
-                reasoning: z.string().max(500),
+                reasoning: z.string(),
                 existingNodeId: z.string().optional(),
                 parentNodeId: z.string().optional(),
-                suggestedTitle: z.string().max(60).optional(),
-                suggestedSummary: z.string().max(300).optional(),
-            }) as any,
-            prompt: `You are a routing system for a knowledge graph. Route user questions to the right place.
+                suggestedTitle: z.string().optional(),
+                suggestedSummary: z.string().optional(),
+            }),
+            prompt: `You are a routing system for a knowledge graph. Your job is to decide whether to CREATE a new node or USE an existing one.
 ${currentNodeContext}${searchContext}
 ## Top 5 Most Relevant Nodes (via Vector Search):
 ${nodeDescriptions}
 
-## ALL Available Nodes (for exact matching):
+## ALL Available Nodes:
 ${allNodesList}
 
 ## User's Question:
 "${question}"
 
-## Decision Logic:
+## Extracted Topic: "${extractedTopic}"
+## Does a node with this EXACT topic exist? ${topicExistsAsNode ? "YES" : "NO"}
 
-### STEP 0: Handle Follow-up Questions (Context-Aware)
-**If user is currently viewing a node (see "Current Context" above):**
-- Questions with pronouns like "his", "her", "it", "this", "their", "them" likely refer to the current node
-- Example: Viewing "LeBron James" → "What's his scoring average?" → **use_existing** (refers to LeBron)
-- Example: Viewing "Calculus" → "Give me an example of this" → **use_existing** (refers to Calculus)
-- If the follow-up is clearly about a different topic, proceed to normal routing
+## ROUTING RULES (FOLLOW EXACTLY):
 
-### STEP 1: Check for Existing Nodes (Prevent Duplicates & Handle Info Requests)
-**USE EXISTING NODE** (action: "use_existing") when:
+### RULE 1: If the EXACT topic does NOT have its own node → CREATE_NEW
+The user asked about "${extractedTopic}". 
+Look at the "ALL Available Nodes" list above. Is there a node titled "${extractedTopic}" or very similar?
+- If NO node exists for "${extractedTopic}" → **action: "create_new"**
+- Find the best parent node (most relevant existing node)
 
-**A. Info Request Pattern (CHECK THIS FIRST!):**
-IF question is "[Entity/Topic Name] + [attribute/info request]" (e.g., "LeBron James age", "Giannis stats", "Calculus uses"):
-  1. Look in "ALL Available Nodes" list for a node that matches the ENTITY/TOPIC NAME
-  2. If that node exists → **use_existing** with that node's ID
-  3. DO NOT route to parent/related nodes - route to THE ENTITY'S OWN NODE
-  
-Examples:
-- "LeBron James age" → Check ALL nodes list for "LeBron James" → If exists, **use_existing** with its ID (NOT "NBA" or "Lakers"!)
-- "How old is LeBron James?" → Check ALL nodes list for "LeBron James" → If exists, **use_existing**
-- "Giannis career stats" → Check ALL nodes list for "Giannis" → If exists, **use_existing**
+Examples of when to CREATE_NEW:
+- Question: "What is the power rule?" | Nodes: [Derivatives, Calculus] | No "Power Rule" node → CREATE_NEW under Derivatives
+- Question: "Who is Bronny James?" | Nodes: [LeBron James, NBA] | No "Bronny James" node → CREATE_NEW under LeBron James  
+- Question: "Explain integration" | Nodes: [Calculus] | No "Integration" node → CREATE_NEW under Calculus
 
-**B. Exact/Near Duplicate:**
-- A node exists with **HIGH similarity (>85%)** AND similar/matching title
-  - "Who is LeBron James?" + "LeBron James" node (92% similarity) → **use_existing**
-  - "What are derivatives?" + "Derivatives" node (88% similarity) → **use_existing**
+### RULE 2: If the EXACT topic already has its own node → USE_EXISTING
+Only use an existing node if:
+- A node with the SAME or VERY SIMILAR title exists
+- Example: "What is the chain rule?" + "Chain Rule Explained" exists → use_existing
 
-**C. More Info About Node's Existing Content:**
-- The question asks for more info about something ALREADY in that node's summary
-  - "Lakers" node mentions "LeBron", user asks "Tell me about LeBron on the Lakers" → **use_existing** Lakers node
+### RULE 3: High similarity to PARENT ≠ Duplicate
+- "Power rule" having 75% similarity to "Derivatives" does NOT mean use Derivatives
+- "Power rule" is a SUBTOPIC of derivatives, so CREATE a new "Power Rule" node UNDER Derivatives
 
-### STEP 2: Create New Node (Only if no duplicate exists)
-**CREATE NEW NODE** (action: "create_new") when:
-- **No high-similarity match exists** (<85% on all nodes)
-- The question is about a **GENUINELY NEW entity/topic/concept** not yet covered
+## YOUR TASK:
+1. Does "${extractedTopic}" have its own node in the ALL Available Nodes list? 
+2. If NO → action: "create_new", find best parentNodeId, suggest title "${extractedTopic.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}"
+3. If YES → action: "use_existing", use that node's existingNodeId
 
-**Finding the Best Parent (UNIVERSAL - Works for ANY domain):**
-1. **Extract ALL relevant connections** from web search results
-   - For people: organizations, teams, companies they work for, fields they work in, movements they're part of
-   - For concepts: parent topics, fields of study, categories they belong to
-   - For events: locations, time periods, related movements or topics
-   - For anything: ANY mention of topics, categories, or entities that might have nodes
-   - **DO NOT just use the FIRST connection** - consider ALL connections mentioned
-   
-2. **Cross-reference EVERY connection with "ALL Available Nodes" list**
-   - Check EACH connection individually against the nodes list
-   - Match on: exact names, partial names, synonyms, related terms
-   - Example: Brook Lopez search mentions "Milwaukee Bucks (2021 championship)" + "LA Clippers (current)" → Check if "Milwaukee Bucks" exists, check if "LA Clippers" exists
-   
-3. **Prefer specific/narrow nodes over generic/root nodes**
-   - "Calculus" > "Mathematics"
-   - "Milwaukee Bucks" > "NBA"
-   - "World War II" > "History"
-   - "React Hooks" > "React" > "JavaScript"
-   
-4. **Only use root node if truly no relevant connection found**
+## DECISION LOGIC (SIMPLE):
 
-## Examples:
-**Info Requests (Priority #1):**
-- Question: "LeBron James age"
-  - Nodes: "NBA" (70%), "LeBron James" (95%), "Lakers" (80%)
-  - Decision: **use_existing "LeBron James"** (route to entity's own node, NOT "NBA"!)
-- Question: "Giannis career stats"
-  - Nodes: "Milwaukee Bucks" (75%), "Giannis Antetokounmpo" (93%)
-  - Decision: **use_existing "Giannis Antetokounmpo"** (route to Giannis, NOT Bucks!)
+**CREATE_NEW when:**
+- The topic "${extractedTopic}" does NOT have its own node yet
+- User is asking about a specific subtopic (technique, person, concept)
+- Examples: "power rule" under Derivatives, "Bronny James" under LeBron James
 
-**Preventing Duplicates:**
-- "Who is Giannis?" + "Giannis Antetokounmpo" exists (95% similarity) → **use_existing**
-- "Tell me about LeBron" + "LeBron James" exists (90% similarity) → **use_existing**
-- "What is calculus?" + "Calculus" exists (88% similarity) → **use_existing**
+**USE_EXISTING when:**  
+- A node with the SAME title as "${extractedTopic}" already exists
+- User is asking a follow-up about the current node (uses pronouns like "this", "it", "his")
+- User is asking for a simple attribute (age, date, stats)
 
-**Creating New Nodes (Cross-Domain Examples):**
-
-**Sports:**
-- "Who is Brook Lopez?"
-  - Search: "Won championship with Milwaukee Bucks in 2021"
-  - Nodes: "Milwaukee Bucks" exists
-  - Decision: **create_new** under "Milwaukee Bucks" ✓
-
-**Mathematics:**
-- "What is the chain rule?"
-  - Search: "Fundamental theorem in calculus for finding derivatives"
-  - Nodes: "Calculus" exists, "Derivatives" exists
-  - Decision: **create_new** under "Derivatives" (more specific) or "Calculus" ✓
-
-**History:**
-- "Who is Winston Churchill?"
-  - Search: "British Prime Minister during World War II"
-  - Nodes: "World War II" exists, "United Kingdom" exists
-  - Decision: **create_new** under "World War II" (strongest connection) ✓
-
-**Technology:**
-- "What is useState?"
-  - Search: "React Hook for managing state in functional components"
-  - Nodes: "React" exists, "JavaScript" exists
-  - Decision: **create_new** under "React" (more specific than JavaScript) ✓
-
-**No Relevant Node:**
-- "Who is Random Person?"
-  - Search: "Person who does thing"
-  - Nodes: No relevant connections found
-  - Decision: **create_new** under ROOT NODE
-- "What is the chain rule?" + "Calculus" (70%), NO "Chain Rule" node exists → **create_new** under "Calculus"
-- "Who is Giannis?" + "Milwaukee Bucks" (80%), NO "Giannis" node → **create_new** under "Milwaukee Bucks"
-
-## CRITICAL RULES:
-1. **PRIORITY ORDER**: Info Request Pattern (Step 1A) → Check ALL nodes list for exact match → Duplicates (Step 1B) → New Nodes (Step 2)
-2. **For Info Requests**: Search the "ALL Available Nodes" list for the entity name, use that node's exact ID
-3. **For creating new nodes (UNIVERSAL LOGIC)**: 
-   - Extract ALL connections/relationships/categories from web search results
-   - Check if ANY of those connections exist in "ALL Available Nodes" list
-   - Prefer specific nodes over generic/root nodes (more specific = better)
-   - Works for ANY domain: sports, math, science, history, tech, literature, etc.
-   - Use exact node IDs from the ALL nodes list
-4. **Always use exact node IDs** from either the Top 5 list or the ALL nodes list
-5. **suggestedTitle**: MAX 3-4 words, match existing naming style
-6. **suggestedSummary**: Use information from web search results when available
-7. **reasoning**: Explain in detail which connections from search you found, which nodes they match to, and why you chose this parent (max 500 chars)
+## KEY INSIGHT:
+High similarity to a PARENT topic ≠ duplicate. 
+"Power rule" (75% similar to Derivatives) should CREATE a new node UNDER Derivatives, not use Derivatives.
 
 Respond with your routing decision:`,
         });

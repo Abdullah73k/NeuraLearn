@@ -14,9 +14,9 @@ export function WorkspacesSidebar() {
 	const workspaces = useGetWorkspaces();
 	return (
 		<Sidebar
-			collapsible="none"
-			className="sticky top-0 hidden h-svh border-l lg:flex max-w-47"
+			variant="floating"
 			side="right"
+			collapsible="offcanvas"
 		>
 			<SidebarHeader>
 				<RainbowButton

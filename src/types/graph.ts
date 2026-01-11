@@ -19,6 +19,9 @@ export interface Node {
   // Relations
   children_ids: string[];
   ancestor_path: string[]; // [root_id, ..., parent_id, this_id]
+
+  // UI position (for ReactFlow canvas persistence)
+  position?: { x: number; y: number };
 }
 
 export interface NodeInteraction {

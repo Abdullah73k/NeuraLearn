@@ -118,6 +118,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       updates.tags = body.tags.filter((t: any) => typeof t === "string");
     }
 
+    // Handle position updates for ReactFlow canvas persistence
+    if (body.position && typeof body.position === "object") {
+      const { x, y } = body.position;
+      if (typeof x === "number" && typeof y === "number") {
+        updates.position = { x, y };
+      }
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
         { error: "No valid updates provided" },
@@ -125,7 +133,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Update embedding if title or summary changed
+    // Update embedding if title or summary changed (not for position-only updates)
     if (updates.title || updates.summary) {
       const { createNodeEmbedding } = await import("@/lib/embeddings");
       const embedding = await createNodeEmbedding(

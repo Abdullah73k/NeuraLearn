@@ -68,6 +68,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         ancestor_path: n.ancestor_path,
         interaction_count: n.interaction_count,
         tags: n.tags,
+        position: n.position, // Include saved position for ReactFlow
       })),
       edges,
       rootNode: rootNode

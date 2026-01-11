@@ -485,7 +485,7 @@ export const useMindMapStore = create<MindMapStore>()(
 									const appNodes: AppNode[] = nodes.map((node: any) => ({
 										id: node.id,
 										type: node.parent_id === null ? "root" : "subtopic",
-										position: { x: 0, y: 0 }, // Layout handled by ReactFlow
+										position: node.position || { x: 0, y: 0 }, // Use saved position or default
 										data: { title: node.title },
 									}));
 
@@ -557,6 +557,18 @@ export const useMindMapStore = create<MindMapStore>()(
 						} as MindMapWorkspace;
 						set({
 							workspaces: updateWorkspaceHelper(state, updatedWorkspace),
+						});
+
+						// Persist position changes to database
+						changes.forEach((change) => {
+							if (change.type === "position" && change.position && !change.dragging) {
+								// Only save when drag ends (dragging = false)
+								fetch(`/api/graph/nodes/${change.id}`, {
+									method: "PATCH",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ position: change.position }),
+								}).catch((err) => console.error("Failed to save node position:", err));
+							}
 						});
 					},
 					onEdgesChangeForActive(changes) {

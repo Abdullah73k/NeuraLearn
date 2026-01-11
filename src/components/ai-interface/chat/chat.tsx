@@ -27,7 +27,7 @@ import {
 	useMindMapActions,
 	useGetActiveWorkspace,
 } from "@/store/hooks";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, FileUIPart } from "ai";
 import { useMindMapStore } from "@/store/store";
 
 const models = { name: "Gemini 2.0 Flash", value: "gemini-2.0-flash" };
@@ -134,7 +134,7 @@ const Chat = () => {
 	}, [nodeId, model, webSearch, edges, sendMessage]);
 
 	// Route the question to the appropriate node (like global mic does)
-	const routeAndSendMessage = useCallback(async (question: string, files?: File[]) => {
+	const routeAndSendMessage = useCallback(async (question: string, files?: FileUIPart[]) => {
 		if (!activeWorkspace) {
 			// No workspace, just send directly
 			sendMessage(

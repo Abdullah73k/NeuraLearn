@@ -48,7 +48,7 @@ const Chat = () => {
 	const activeWorkspace = useGetActiveWorkspace();
 	const nodeId = selectedNode?.id as string;
 	const persistentMessages = useGetNodeChatMessages();
-	const { appendNodeChat, setSelectedNodeId } = useMindMapActions();
+	const { appendNodeChat, setSelectedNode, setIsChatBarOpen } = useMindMapActions();
 	const edges = useGetSelectedNodeEdges();
 	const [input, setInput] = useState("");
 	const [model, setModel] = useState<string>(models.value);
@@ -70,7 +70,43 @@ const Chat = () => {
 			},
 		});
 	
-	// Listen for voice messages that need to be sent to the AI
+	// Check for pending questions when nodeId changes (after navigation from routing)
+	useEffect(() => {
+		const checkPendingQuestion = () => {
+			const pending = sessionStorage.getItem('pendingChatQuestion');
+			if (pending) {
+				try {
+					const { nodeId: pendingNodeId, question, timestamp } = JSON.parse(pending);
+					// Only process if this is for the current node and not stale (within 10 seconds)
+					if (pendingNodeId === nodeId && Date.now() - timestamp < 10000) {
+						// Clear the pending question first to prevent duplicate sends
+						sessionStorage.removeItem('pendingChatQuestion');
+						
+						// Small delay to ensure chat is ready
+						setTimeout(() => {
+							sendMessage(
+								{ text: question, files: [] },
+								{ body: { model, webSearch, edges } }
+							);
+						}, 100);
+					} else if (Date.now() - timestamp >= 10000) {
+						// Clear stale pending questions
+						sessionStorage.removeItem('pendingChatQuestion');
+					}
+				} catch (e) {
+					sessionStorage.removeItem('pendingChatQuestion');
+				}
+			}
+		};
+		
+		// Check immediately and also after a short delay (in case of race conditions)
+		checkPendingQuestion();
+		const timeout = setTimeout(checkPendingQuestion, 300);
+		
+		return () => clearTimeout(timeout);
+	}, [nodeId, model, webSearch, edges, sendMessage]);
+	
+	// Listen for voice messages that need to be sent to the AI (from global mic)
 	useEffect(() => {
 		const handleVoiceMessage = (event: CustomEvent) => {
 			const { nodeId: voiceNodeId, question } = event.detail;
@@ -162,25 +198,39 @@ const Chat = () => {
 					// Reload workspaces to get the new node
 					await useMindMapStore.getState().actions.loadWorkspacesFromDb();
 					
-					// Navigate to the new node
-					setSelectedNodeId(newNodeId);
-
-					// Dispatch event to send message to the new node's chat
-					await new Promise(resolve => setTimeout(resolve, 200));
-					window.dispatchEvent(new CustomEvent('voice-message-added', {
-						detail: { nodeId: newNodeId, question }
+					// Store the pending question for the new node to pick up
+					sessionStorage.setItem('pendingChatQuestion', JSON.stringify({
+						nodeId: newNodeId,
+						question,
+						timestamp: Date.now()
 					}));
+					
+					// Find the newly created node and navigate to it
+					const updatedWorkspace = useMindMapStore.getState().workspaces.find(
+						w => w.id === activeWorkspace.id
+					);
+					const newNode = updatedWorkspace?.nodes.find(n => n.id === newNodeId);
+					if (newNode) {
+						setSelectedNode(newNode);
+						setIsChatBarOpen();
+					}
 				}
 			} else if (routing.action === "navigate_to_existing" && routing.nodeId) {
 				// Navigate to existing node
 				if (routing.nodeId !== nodeId) {
-					setSelectedNodeId(routing.nodeId);
-					
-					// Dispatch event to send message to the target node's chat
-					await new Promise(resolve => setTimeout(resolve, 200));
-					window.dispatchEvent(new CustomEvent('voice-message-added', {
-						detail: { nodeId: routing.nodeId, question }
+					// Store the pending question for the target node to pick up
+					sessionStorage.setItem('pendingChatQuestion', JSON.stringify({
+						nodeId: routing.nodeId,
+						question,
+						timestamp: Date.now()
 					}));
+					
+					// Find and navigate to the target node
+					const targetNode = activeWorkspace.nodes.find(n => n.id === routing.nodeId);
+					if (targetNode) {
+						setSelectedNode(targetNode);
+						setIsChatBarOpen();
+					}
 				} else {
 					// Same node, just send the message
 					sendMessage(
@@ -205,7 +255,7 @@ const Chat = () => {
 		} finally {
 			setIsRouting(false);
 		}
-	}, [activeWorkspace, nodeId, model, webSearch, edges, sendMessage, setSelectedNodeId]);
+	}, [activeWorkspace, nodeId, model, webSearch, edges, sendMessage, setSelectedNode, setIsChatBarOpen]);
 
 	const handleSubmit = async (message: PromptInputMessage) => {
 		const hasText = Boolean(message.text);

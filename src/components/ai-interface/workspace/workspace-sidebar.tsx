@@ -7,26 +7,25 @@ import {
 	SidebarHeader,
 } from "@/components/ui/sidebar";
 import { useMindMapActions, useGetWorkspaces } from "@/store/hooks";
-import { Button } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 
 export function WorkspacesSidebar() {
 	const { createWorkspace } = useMindMapActions();
 	const workspaces = useGetWorkspaces();
 	return (
 		<Sidebar
-			collapsible="none"
-			className="sticky top-0 hidden h-svh border-l lg:flex max-w-47"
+			variant="floating"
 			side="right"
+			collapsible="offcanvas"
 		>
 			<SidebarHeader>
-				<Button
+				<RainbowButton
 					onClick={() => {
 						createWorkspace();
 					}}
-					className="cursor-pointer"
 				>
 					Add Workspace
-				</Button>
+				</RainbowButton>
 			</SidebarHeader>
 			<SidebarContent>
 				<WorkspacesContainer workspaces={workspaces} />

@@ -1,5 +1,8 @@
+"use client";
+
 import { MindMapWorkspace } from "@/types/store.types";
 import Workspace from "./workspace";
+import { AnimatedList, AnimatedListItem } from "@/components/ui/animated-list";
 
 export default function Workspaces({
 	workspaces,
@@ -9,10 +12,12 @@ export default function Workspaces({
 	isMobile: boolean;
 }) {
 	return (
-		<>
+		<AnimatedList className="items-start gap-1" delay={100}>
 			{workspaces.map(({ id, title }) => (
-				<Workspace key={id} id={id} title={title} isMobile={isMobile} />
+				<AnimatedListItem key={id}>
+					<Workspace id={id} title={title} isMobile={isMobile} />
+				</AnimatedListItem>
 			))}
-		</>
+		</AnimatedList>
 	);
 }

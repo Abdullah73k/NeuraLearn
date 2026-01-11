@@ -22,13 +22,13 @@ export function ChatSidebar() {
 								<div className=" text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
 									<Image
 										src={AppIcon.src}
-										alt="Brain Graph Logo"
+										alt="Neuralearn Logo"
 										width={32}
 										height={32}
 									/>
 								</div>
 								<div className="flex flex-col gap-0.5 leading-none">
-									<span className="font-medium">Brain Graph AI</span>
+									<span className="font-medium">Neuralearn AI</span>
 									<span className="">v1.0.0</span>
 								</div>
 							</header>

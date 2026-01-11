@@ -113,7 +113,21 @@ const Chat = () => {
 							regenerate={regenerate}
 							status={status}
 						/>
-						{status === "submitted" && <Loader />}
+						{status === "submitted" && (
+							<div className="flex flex-col items-center justify-center py-12 gap-4">
+								<div className="flex items-center justify-center">
+									<Loader size={48} />
+								</div>
+								<div className="flex flex-col items-center gap-2">
+									<p className="text-sm font-medium text-muted-foreground">
+										Thinking...
+									</p>
+									<p className="text-xs text-muted-foreground max-w-xs text-center">
+										Processing your prompt with advanced reasoning
+									</p>
+								</div>
+							</div>
+						)}
 					</ConversationContent>
 					<ConversationScrollButton />
 				</Conversation>

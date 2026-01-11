@@ -13,7 +13,6 @@ import {
 } from "@/store/hooks";
 import { edgeTypes } from "@/lib/edge-types-map";
 import { COLORS } from "../edges/mindmap-edge";
-import GlobalMic from "../global-mic/global-mic";
 
 export default function InfinityBoard() {
 	const {
@@ -48,9 +47,9 @@ export default function InfinityBoard() {
 	return (
 		<ReactFlowProvider>
 			<div
-				className="m-auto"
+				className="mr-80"
 				style={{
-					width: `${isChatBarOpen ? "50dvw" : "80dvw"}`,
+					width: `${isChatBarOpen ? "55dvw" : "84dvw"}`,
 					height: "100dvh",
 				}}
 			>
@@ -75,10 +74,12 @@ export default function InfinityBoard() {
 						const selectedNode = nodes[0] ? nodes[0] : null;
 						console.log("Selected Node: ", selectedNode);
 						setSelectedNode(selectedNode);
-						if (selectedNode && selectedNode.type === "subtopic") {
+						closeChatBar();
+					}}
+					onNodeDoubleClick={() => {
+						if (!isChatBarOpen) {
+							setSelectedNode(selectedNode);
 							setIsChatBarOpen();
-						} else {
-							closeChatBar();
 						}
 					}}
 					fitViewOptions={{ padding: 0.2 }}
@@ -86,7 +87,6 @@ export default function InfinityBoard() {
 				>
 					<InfinityBoardConfig selectedNode={selectedNode} />
 				</ReactFlow>
-				<GlobalMic />
 			</div>
 		</ReactFlowProvider>
 	);

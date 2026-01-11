@@ -17,20 +17,35 @@ export default function Page() {
 	}, [loadWorkspacesFromDb]);
 
 	return (
-		<SidebarProvider
-			style={
-				{
-					"--sidebar-width": "34rem",
-				} as React.CSSProperties
-			}
-			open={isChatBarOpen}
-			onOpenChange={setIsChatBarOpen}
-		>
-			<ChatSidebar />
-			<SidebarInset className="flex justify-center items-center">
-				<InfinityBoard />
-			</SidebarInset>
-			<WorkspacesSidebar />
-		</SidebarProvider>
+		<div className="relative h-screen w-screen overflow-hidden">
+			<SidebarProvider
+				style={
+					{
+						"--sidebar-width": "34rem",
+					} as React.CSSProperties
+				}
+				open={isChatBarOpen}
+				onOpenChange={setIsChatBarOpen}
+			>
+				<ChatSidebar />
+				<SidebarInset className="flex justify-center items-center">
+					<InfinityBoard />
+				</SidebarInset>
+			</SidebarProvider>
+			<div className="fixed inset-0 pointer-events-none z-5">
+				<SidebarProvider
+					style={
+						{
+							"--sidebar-width": "20rem",
+						} as React.CSSProperties
+					}
+					className="h-full"
+				>
+					<div className="pointer-events-auto">
+						<WorkspacesSidebar />
+					</div>
+				</SidebarProvider>
+			</div>
+		</div>
 	);
 }

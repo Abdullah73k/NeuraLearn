@@ -18,6 +18,7 @@ export type MindMapActions = {
 	setIsChatBarOpen: () => void;
 	createWorkspace: () => Promise<void>;
 	deleteWorkspace: (id: string) => void;
+	renameWorkspace: (id: string, newTitle: string) => void;
 	deleteNode: (id: string) => void;
 
 	setNoteNodeTitle: (event: ChangeEvent<HTMLInputElement>, id: string) => void;

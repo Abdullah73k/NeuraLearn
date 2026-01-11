@@ -6,6 +6,7 @@ import type { RootNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useGetRootNodeTitle, useMindMapActions } from "@/store/hooks";
+import { ShineBorder } from "@/components/ui/shine-border";
 
 /**
  * Root Node Component
@@ -25,10 +26,18 @@ export function RootNode({ data, selected }: NodeProps<RootNode>) {
 	return (
 		<div
 			className={cn(
-				"relative rounded-2xl border bg-white shadow-sm px-6 py-4 min-w-[280px] min-h-[80px] flex items-center justify-center transition-all",
-				selected ? "border-cyan-500 ring-2 ring-cyan-200" : "border-neutral-200"
+				"relative rounded-2xl bg-white shadow-sm px-6 py-4 min-w-[280px] min-h-[80px] flex items-center justify-center transition-all"
 			)}
 		>
+			{/* Animated shine border effect - only when selected */}
+			{selected && (
+				<ShineBorder
+					borderWidth={2}
+					duration={8}
+					shineColor={["#06b6d4", "#3b82f6", "#8b5cf6", "#06b6d4"]}
+				/>
+			)}
+			
 			{/* Main title input - prominent and centered */}
 			<Input
 				value={data.title}

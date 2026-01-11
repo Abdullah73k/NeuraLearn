@@ -13,18 +13,18 @@ import {
   Loader2Icon,
   CheckIcon,
   XIcon,
-  ArrowRightIcon,
   PlusIcon,
+  ArrowRightIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type RoutingResult = {
-  action: "create_new" | "use_existing";
-  nodeId?: string; // Only for use_existing
-  nodeTitle?: string; // Only for use_existing
+  action: "create_new" | "navigate_to_existing";
+  nodeId?: string;
+  nodeTitle?: string;
   parentId?: string;
-  suggestedTitle?: string; // For create_new
-  suggestedSummary?: string; // For create_new
+  suggestedTitle?: string;
+  suggestedSummary?: string;
   reasoning: string;
   question: string;
 };
@@ -77,7 +77,7 @@ export default function GlobalMic() {
       };
 
       // Start recording with timeslice to collect data periodically
-      mediaRecorder.start(100); // Collect data every 100ms
+      mediaRecorder.start(100);
       setState("recording");
     } catch (err) {
       console.error("Failed to start recording:", err);
@@ -141,7 +141,7 @@ export default function GlobalMic() {
         body: JSON.stringify({
           question: transcribedText,
           rootId: activeWorkspace?.id,
-          currentNodeId: nodeInCurrentWorkspace ? selectedNode?.id : null, // Only pass if node is in current workspace
+          currentNodeId: nodeInCurrentWorkspace ? selectedNode?.id : null,
           recentMessages,
         }),
       });
@@ -249,7 +249,6 @@ export default function GlobalMic() {
         await new Promise(resolve => setTimeout(resolve, 200));
         
         // Dispatch event to notify chat component to add message and trigger AI
-        // The chat component will handle adding the message (avoiding duplicates)
         window.dispatchEvent(new CustomEvent('voice-message-added', {
           detail: {
             nodeId: targetNodeId,
@@ -258,7 +257,6 @@ export default function GlobalMic() {
         }));
       } else {
         console.log("Target node not found in workspace (may have been deleted)");
-        // Don't show error - user likely deleted it intentionally
       }
 
       // Reset state
@@ -269,7 +267,7 @@ export default function GlobalMic() {
       console.error("Routing execution error:", err);
       setError("Failed to navigate to node");
     }
-  }, [routingResult, activeWorkspace, setSelectedNode, addMessageToNode]);
+  }, [routingResult, activeWorkspace, setSelectedNode, setIsChatBarOpen]);
 
   const cancelRouting = useCallback(() => {
     setState("idle");
@@ -380,7 +378,7 @@ export default function GlobalMic() {
                   className="rounded-full gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
                 >
                   <CheckIcon className="size-4" />
-                  {routingResult?.action === "navigate_to_new" ? "Create & Go" : "Navigate"}
+                  {routingResult?.action === "create_new" ? "Create & Go" : "Navigate"}
                 </Button>
               </div>
             </>

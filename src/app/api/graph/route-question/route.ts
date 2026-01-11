@@ -2,20 +2,17 @@ import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getMongoDb } from "@/lib/db/client";
-import { createNodeEmbedding } from "@/lib/embeddings";
 import { createNode } from "@/lib/graph-tools";
 import type { Node } from "@/types/graph";
 
-const routingDecisionSchema = z.object({
-    action: z.enum(["use_existing", "create_new"]),
-    reasoning: z.string().describe("Brief explanation of why this routing decision was made"),
-    // For use_existing
-    existingNodeId: z.string().optional().describe("The ID of the existing node to route to"),
-    // For create_new
-    parentNodeId: z.string().optional().describe("The ID of the parent node to create under"),
-    suggestedTitle: z.string().optional().describe("Suggested title for the new node (3-5 words)"),
-    suggestedSummary: z.string().optional().describe("Brief summary of what this node will cover"),
-});
+type RoutingDecision = {
+    action: "use_existing" | "create_new";
+    reasoning: string;
+    existingNodeId?: string;
+    parentNodeId?: string;
+    suggestedTitle?: string;
+    suggestedSummary?: string;
+};
 
 export async function POST(req: Request) {
     try {
@@ -57,7 +54,14 @@ export async function POST(req: Request) {
         // Use AI to determine the best routing
         const result = await generateObject({
             model: google("gemini-2.0-flash"),
-            schema: routingDecisionSchema,
+            schema: z.object({
+                action: z.enum(["use_existing", "create_new"]),
+                reasoning: z.string(),
+                existingNodeId: z.string().optional(),
+                parentNodeId: z.string().optional(),
+                suggestedTitle: z.string().optional(),
+                suggestedSummary: z.string().optional(),
+            }) as any,
             prompt: `You are an intelligent routing system for a knowledge graph. Your job is to help users navigate their personal knowledge base efficiently.
 
 ## Available Nodes in the Knowledge Graph:
@@ -92,7 +96,7 @@ ${nodeDescriptions}
 Make your routing decision:`,
         });
 
-        const decision = result.object;
+        const decision = result.object as RoutingDecision;
 
         // If creating a new node, actually create it
         if (decision.action === "create_new" && decision.parentNodeId && decision.suggestedTitle) {

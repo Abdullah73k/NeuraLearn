@@ -151,6 +151,9 @@ export default function GlobalMic() {
         // Reload workspaces to get the new node
         const { useMindMapStore } = await import("@/store/store");
         await useMindMapStore.getState().loadWorkspacesFromDb();
+        
+        // Small delay to ensure state is updated
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Find the target node and select it
@@ -162,14 +165,30 @@ export default function GlobalMic() {
       const targetNode = currentWorkspace?.nodes.find(n => n.id === routingResult.nodeId);
       
       if (targetNode) {
+        // Select the node to open its chat
         setSelectedNode(targetNode);
         
-        // Add the question as a message to the node's chat
-        addMessageToNode(routingResult.nodeId, {
+        // Create a user message
+        const userMessage = {
           id: crypto.randomUUID(),
-          role: "user",
-          parts: [{ type: "text", text: routingResult.question }],
-        });
+          role: "user" as const,
+          parts: [{ type: "text" as const, text: routingResult.question }],
+        };
+        
+        // Add the question as a message to the node's chat
+        addMessageToNode(routingResult.nodeId, userMessage);
+        
+        // Dispatch event to notify chat component to send the message
+        // The chat component will listen for this and trigger the AI
+        window.dispatchEvent(new CustomEvent('voice-message-added', {
+          detail: {
+            nodeId: routingResult.nodeId,
+            question: routingResult.question,
+          }
+        }));
+      } else {
+        console.error("Could not find target node:", routingResult.nodeId);
+        setError("Failed to find the target node");
       }
 
       // Reset state

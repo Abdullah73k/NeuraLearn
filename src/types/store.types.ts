@@ -32,6 +32,7 @@ export type MindMapActions = {
 	setRootNodeTitle: (event: ChangeEvent<HTMLInputElement>) => void;
 	createNodeChatSummary: (nodeId: string, summary: string) => void;
 	appendNodeChat: (nodeId: string, messages: UIMessage[]) => void;
+	addMessageToNode: (nodeId: string, message: UIMessage) => void;
 	closeChatBar: () => void;
 	setCurrentRelationType: (relation: RelationType) => void;
 	setActiveWorkspace: (id: string) => void;

@@ -169,6 +169,23 @@ export const useMindMapStore = create<MindMapStore>()(
 							workspaces: updateWorkspaceHelper(state, updatedWorkspace),
 						});
 					},
+					addMessageToNode(nodeId, message) {
+						const state = get();
+						if (state.workspaces.length === 0) return;
+						const activeWorkspace = activeWorkspaceHelper(state);
+						if (!activeWorkspace) return;
+						const existingMessages = activeWorkspace.messages[nodeId] || [];
+						const updatedWorkspace: MindMapWorkspace = {
+							...activeWorkspace,
+							messages: {
+								...activeWorkspace.messages,
+								[nodeId]: [...existingMessages, message],
+							},
+						};
+						set({
+							workspaces: updateWorkspaceHelper(state, updatedWorkspace),
+						});
+					},
 					deleteNode(id) {
 						const state = get();
 						if (state.workspaces.length === 0) return;

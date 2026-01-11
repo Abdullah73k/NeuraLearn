@@ -13,7 +13,7 @@ import { relations, RelationType } from "@/types/edges";
 export default function PanelTopMiddle() {
 	const currentRelationType = useGetCurrentRelationType();
 	const selectedNode = useGetSelectedNode();
-	const { createSubtopicNode, createNoteNode, setCurrentRelationType, deleteNode } =
+	const { createSubtopicNode, createNoteNode, setCurrentRelationType, deleteNode, rebalanceLayout } =
 		useMindMapActions();
 	
 	// Determine if delete button should be disabled
@@ -33,6 +33,7 @@ export default function PanelTopMiddle() {
 					}}
 					disabled={isDeleteDisabled}
 				/>
+				<MenubarOption option="Auto Layout" onClick={rebalanceLayout} />
 				<MenubarMenu>
 					<MenubarTrigger>Node Relations</MenubarTrigger>
 					<MenubarContent>

@@ -8,7 +8,9 @@ import {
   useGetCurrentRelationType,
   useMindMapActions,
 } from "@/store/hooks";
-import { RelationType } from "@/types/edges";
+import { RelationType, MindMapEdge } from "@/types/edges";
+import { calculateNewChildPosition, getTreeEdgeHandles } from "@/lib/tree-layout";
+import { AppNode } from "@/types/nodes";
 
 type CreateNodeButtonProps = {
   text: string;
@@ -84,10 +86,14 @@ export default function CreateNodeButton({ text, messageId }: CreateNodeButtonPr
 
       const newNodeId = crypto.randomUUID();
       
-      // Position the new node relative to the source node
+      // Position the new node using tree layout (below parent)
       const sourceNode = workspace.nodes.find((n) => n.id === selectedNode.id);
       const newPosition = sourceNode
-        ? { x: sourceNode.position.x + 250, y: sourceNode.position.y + 150 }
+        ? calculateNewChildPosition(
+            sourceNode,
+            workspace.nodes,
+            workspace.edges as MindMapEdge[]
+          )
         : { x: 250, y: 250 };
 
       const newNode = {
@@ -97,10 +103,17 @@ export default function CreateNodeButton({ text, messageId }: CreateNodeButtonPr
         data: { title },
       };
 
+      // Get proper handles for tree layout (bottom of parent -> top of child)
+      const { sourceHandle, targetHandle } = sourceNode
+        ? getTreeEdgeHandles(sourceNode, newNode as AppNode)
+        : { sourceHandle: undefined, targetHandle: undefined };
+
       const newEdge = {
         id: crypto.randomUUID(),
         source: selectedNode.id,
         target: newNodeId,
+        sourceHandle,
+        targetHandle,
         type: "mindmap",
         data: { relationType: currentRelationType as RelationType },
       };

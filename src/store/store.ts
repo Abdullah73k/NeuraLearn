@@ -7,6 +7,12 @@ import {
 	activeWorkspaceHelper,
 	updateWorkspaceHelper,
 } from "../utils/store.utils";
+import {
+	calculateNewChildPosition,
+	rebalanceTreeLayout,
+	getTreeEdgeHandles,
+} from "@/lib/tree-layout";
+import { MindMapEdge } from "@/types/edges";
 
 export const useMindMapStore = create<MindMapStore>()(
 	devtools(
@@ -272,18 +278,60 @@ export const useMindMapStore = create<MindMapStore>()(
 						if (state.workspaces.length === 0) return;
 						const activeWorkspace = activeWorkspaceHelper(state);
 						if (!activeWorkspace) return;
-						const nodesSnapshot = activeWorkspace.nodes;
+
+						// Use the selected node as parent, or fall back to root node
+						const parentNode = state.selectedNode || activeWorkspace.nodes.find(n => n.type === "root");
+						
+						let newPosition = { x: 250, y: 250 };
+						let newEdge: MindMapEdge | null = null;
+
+						if (parentNode) {
+							// Calculate position using tree layout (below parent)
+							newPosition = calculateNewChildPosition(
+								parentNode,
+								activeWorkspace.nodes,
+								activeWorkspace.edges as MindMapEdge[]
+							);
+
+							// Get proper handles for tree layout (bottom -> top)
+							const { sourceHandle, targetHandle } = getTreeEdgeHandles(
+								parentNode,
+								{ type: "note" } as AppNode
+							);
+
+							newEdge = {
+								id: crypto.randomUUID(),
+								source: parentNode.id,
+								target: crypto.randomUUID(), // Will be replaced below
+								sourceHandle,
+								targetHandle,
+								type: "mindmap",
+								data: { relationType: state.currentRelationType },
+							};
+						}
+
+						const nodeId = newEdge ? newEdge.target : crypto.randomUUID();
+						if (newEdge) {
+							newEdge.target = nodeId;
+						}
+
 						const newNoteNode: AppNode = {
-							id: crypto.randomUUID(),
+							id: nodeId,
 							type: "note",
-							position: { x: 0, y: 0 },
+							position: newPosition,
 							data: { title: "New Note", description: "" },
 						};
-						const updatedNodes = [...nodesSnapshot, newNoteNode];
+
+						const updatedNodes = [...activeWorkspace.nodes, newNoteNode];
+						const updatedEdges = newEdge 
+							? [...activeWorkspace.edges, newEdge]
+							: activeWorkspace.edges;
+
 						set({
 							workspaces: updateWorkspaceHelper(state, {
 								...activeWorkspace,
 								nodes: updatedNodes,
+								edges: updatedEdges,
 							}),
 						});
 					},
@@ -293,9 +341,9 @@ export const useMindMapStore = create<MindMapStore>()(
 						const activeWorkspace = activeWorkspaceHelper(state);
 						if (!activeWorkspace) return;
 
-						// Use the root node as parent
-						const rootNode = activeWorkspace.nodes.find(n => n.type === "root");
-						if (!rootNode) return;
+						// Use the selected node as parent, or fall back to root node
+						const parentNode = state.selectedNode || activeWorkspace.nodes.find(n => n.type === "root");
+						if (!parentNode) return;
 
 						try {
 							// Create node in MongoDB first
@@ -305,7 +353,7 @@ export const useMindMapStore = create<MindMapStore>()(
 								body: JSON.stringify({
 									title: "New Subtopic",
 									summary: "A new subtopic to explore",
-									parent_id: rootNode.id,
+									parent_id: parentNode.id,
 									tags: [],
 								}),
 							});
@@ -319,19 +367,46 @@ export const useMindMapStore = create<MindMapStore>()(
 							const data = await response.json();
 							const nodeId = data.node.id;
 
-							// Add to local state
+							// Calculate position using tree layout (below parent)
+							const newPosition = calculateNewChildPosition(
+								parentNode,
+								activeWorkspace.nodes,
+								activeWorkspace.edges as MindMapEdge[]
+							);
+
+							// Get proper handles for tree layout (bottom -> top)
+							const { sourceHandle, targetHandle } = getTreeEdgeHandles(
+								parentNode,
+								{ type: "subtopic" } as AppNode
+							);
+
+							// Create the new node
 							const newSubtopicNode: AppNode = {
 								id: nodeId,
 								type: "subtopic",
-								position: { x: 0, y: 0 },
+								position: newPosition,
 								data: { title: data.node.title },
 							};
 
+							// Create edge connecting parent to child with proper handles
+							const newEdge: MindMapEdge = {
+								id: crypto.randomUUID(),
+								source: parentNode.id,
+								target: nodeId,
+								sourceHandle,
+								targetHandle,
+								type: "mindmap",
+								data: { relationType: state.currentRelationType },
+							};
+
 							const updatedNodes = [...activeWorkspace.nodes, newSubtopicNode];
+							const updatedEdges = [...activeWorkspace.edges, newEdge];
+
 							set({
 								workspaces: updateWorkspaceHelper(state, {
 									...activeWorkspace,
 									nodes: updatedNodes,
+									edges: updatedEdges,
 								}),
 							});
 						} catch (error) {
@@ -603,6 +678,28 @@ export const useMindMapStore = create<MindMapStore>()(
 						const updatedWorkspace = {
 							...activeWorkspace,
 							edges: [...activeWorkspace.edges, newEdge],
+						} as MindMapWorkspace;
+
+						set({
+							workspaces: updateWorkspaceHelper(state, updatedWorkspace),
+						});
+					},
+					rebalanceLayout() {
+						const state = get();
+						if (state.workspaces.length === 0) return;
+
+						const activeWorkspace = activeWorkspaceHelper(state);
+						if (!activeWorkspace) return;
+
+						// Rebalance tree layout for all nodes
+						const rebalancedNodes = rebalanceTreeLayout(
+							activeWorkspace.nodes,
+							activeWorkspace.edges as MindMapEdge[]
+						);
+
+						const updatedWorkspace = {
+							...activeWorkspace,
+							nodes: rebalancedNodes,
 						} as MindMapWorkspace;
 
 						set({

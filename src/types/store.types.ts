@@ -43,6 +43,7 @@ export type MindMapActions = {
 	onNodesChangeForActive: (changes: NodeChange<AppNode>[]) => void;
 	onEdgesChangeForActive: (changes: EdgeChange<Edge>[]) => void;
 	onConnectForActive: (connection: Connection) => void;
+	rebalanceLayout: () => void;
 };
 
 export type MindMapStore = {

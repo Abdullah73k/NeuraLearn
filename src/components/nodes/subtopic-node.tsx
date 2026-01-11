@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { SubtopicNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export function SubtopicNode({ id, data, selected }: NodeProps<SubtopicNode>) {
 	const selectedNode = useGetSelectedNode();
 	const [isHovered, setIsHovered] = useState(false);
 	const [showTerminal, setShowTerminal] = useState(false);
+	const nodeRef = useRef<HTMLDivElement>(null);
 
 	// Check if this node is the parent or root of the selected node
 	const isParentOfSelected = selectedNode?.data?.metadata?.parentId === id;
@@ -61,6 +62,7 @@ export function SubtopicNode({ id, data, selected }: NodeProps<SubtopicNode>) {
 
 	return (
 		<div
+			ref={nodeRef}
 			className={cn(
 				"relative rounded-full bg-white p-4 w-[160px] h-[160px] flex items-center justify-center transition-all duration-200",
 				selected
@@ -78,7 +80,8 @@ export function SubtopicNode({ id, data, selected }: NodeProps<SubtopicNode>) {
 				nodeTitle={data.title}
 				nodeType="subtopic"
 				metadata={data.metadata}
-				position="top"
+				position="left"
+				nodeRef={nodeRef}
 			/>
 			{/* Neon gradient border effect - always visible */}
 			<NeonGradientBorder

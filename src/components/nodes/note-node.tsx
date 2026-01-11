@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { NoteNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ export function NoteNode({ id, data, selected }: NodeProps<NoteNode>) {
 	const selectedNode = useGetSelectedNode();
 	const [isHovered, setIsHovered] = useState(false);
 	const [showTerminal, setShowTerminal] = useState(false);
+	const nodeRef = useRef<HTMLDivElement>(null);
 
 	// Check if this node is the parent or root of the selected node
 	const isParentOfSelected = selectedNode?.data?.metadata?.parentId === id;
@@ -64,6 +65,7 @@ export function NoteNode({ id, data, selected }: NodeProps<NoteNode>) {
 
 	return (
 		<div
+			ref={nodeRef}
 			className={cn(
 				"relative rounded-2xl bg-white px-4 py-3 min-w-[240px] min-h-[180px] flex flex-col transition-all duration-200",
 				hasOtherNodeSelected && "opacity-40"
@@ -78,7 +80,8 @@ export function NoteNode({ id, data, selected }: NodeProps<NoteNode>) {
 				nodeTitle={data.title}
 				nodeType="note"
 				metadata={data.metadata}
-				position="top"
+				position="left"
+				nodeRef={nodeRef}
 			/>
 			{/* Neon gradient border effect - always visible */}
 			<NeonGradientBorder

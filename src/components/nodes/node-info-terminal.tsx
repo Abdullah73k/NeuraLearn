@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Terminal, AnimatedSpan } from "@/components/ui/terminal";
 import type { NodeMetadata } from "@/types/nodes";
@@ -19,6 +20,8 @@ interface NodeInfoTerminalProps {
   className?: string;
   /** Position of the terminal relative to the node */
   position?: "top" | "bottom" | "left" | "right";
+  /** Reference to the node element for positioning */
+  nodeRef?: React.RefObject<HTMLDivElement>;
 }
 
 /**
@@ -37,7 +40,49 @@ export function NodeInfoTerminal({
   metadata,
   className,
   position = "top",
+  nodeRef,
 }: NodeInfoTerminalProps) {
+  const [mounted, setMounted] = useState(false);
+  const [terminalPosition, setTerminalPosition] = useState({ top: 0, left: 0 });
+
+  // Handle client-side mounting for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Update position when visible and nodeRef changes
+  useEffect(() => {
+    if (isVisible && nodeRef?.current) {
+      const rect = nodeRef.current.getBoundingClientRect();
+      const terminalWidth = 280;
+      const gap = 20; // Gap between node and terminal
+      
+      let top = 0;
+      let left = 0;
+      
+      switch (position) {
+        case "top":
+          top = rect.top - gap; // Position above node with gap
+          left = rect.left + rect.width / 2 - terminalWidth / 2;
+          break;
+        case "bottom":
+          top = rect.bottom + gap;
+          left = rect.left + rect.width / 2 - terminalWidth / 2;
+          break;
+        case "left":
+          top = rect.top + rect.height / 2;
+          left = rect.left - terminalWidth - gap;
+          break;
+        case "right":
+          top = rect.top + rect.height / 2;
+          left = rect.right + gap;
+          break;
+      }
+      
+      setTerminalPosition({ top, left });
+    }
+  }, [isVisible, nodeRef, position]);
+
   // Format the creation date
   const formatDate = useCallback((date?: Date | string) => {
     if (!date) return "Unknown";
@@ -112,7 +157,10 @@ export function NodeInfoTerminal({
     return text.substring(0, periodIndex + 1);
   }, []);
 
-  return (
+  // Don't render on server or if not mounted
+  if (!mounted) return null;
+
+  const terminalContent = (
     <AnimatePresence>
       {isVisible && (
         <motion.div
@@ -121,10 +169,15 @@ export function NodeInfoTerminal({
           exit={{ opacity: 0, scale: 0.95, y: position === "top" ? 10 : position === "bottom" ? -10 : 0 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
           className={cn(
-            "absolute z-50 pointer-events-none",
-            positionStyles,
+            "fixed pointer-events-none",
             className
           )}
+          style={{ 
+            zIndex: 99999,
+            top: terminalPosition.top,
+            left: terminalPosition.left,
+            transform: position === "top" ? "translateY(-100%)" : position === "left" || position === "right" ? "translateY(-50%)" : undefined,
+          }}
         >
           <Terminal
             className="w-[280px] h-auto bg-neutral-100/95 backdrop-blur-sm border-neutral-300 shadow-2xl text-[10px]"
@@ -204,4 +257,7 @@ export function NodeInfoTerminal({
       )}
     </AnimatePresence>
   );
+
+  // Render using portal to escape stacking context
+  return createPortal(terminalContent, document.body);
 }

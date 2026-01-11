@@ -262,3 +262,31 @@ export function getTreeEdgeHandles(
 
   return { sourceHandle, targetHandle };
 }
+
+/**
+ * Fix edge handles to use proper tree layout connections (bottom -> top)
+ * This updates existing edges to have correct sourceHandle and targetHandle
+ */
+export function fixEdgeHandles(
+  edges: MindMapEdge[],
+  nodes: AppNode[]
+): MindMapEdge[] {
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  return edges.map((edge) => {
+    const sourceNode = nodeMap.get(edge.source);
+    const targetNode = nodeMap.get(edge.target);
+
+    if (!sourceNode || !targetNode) {
+      return edge;
+    }
+
+    const { sourceHandle, targetHandle } = getTreeEdgeHandles(sourceNode, targetNode);
+
+    return {
+      ...edge,
+      sourceHandle,
+      targetHandle,
+    };
+  });
+}

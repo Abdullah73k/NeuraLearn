@@ -11,6 +11,7 @@ import {
 	calculateNewChildPosition,
 	rebalanceTreeLayout,
 	getTreeEdgeHandles,
+	fixEdgeHandles,
 } from "@/lib/tree-layout";
 import { MindMapEdge } from "@/types/edges";
 
@@ -697,9 +698,16 @@ export const useMindMapStore = create<MindMapStore>()(
 							activeWorkspace.edges as MindMapEdge[]
 						);
 
+						// Fix edge handles to use proper tree connections (bottom -> top)
+						const fixedEdges = fixEdgeHandles(
+							activeWorkspace.edges as MindMapEdge[],
+							activeWorkspace.nodes
+						);
+
 						const updatedWorkspace = {
 							...activeWorkspace,
 							nodes: rebalancedNodes,
+							edges: fixedEdges,
 						} as MindMapWorkspace;
 
 						set({

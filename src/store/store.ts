@@ -88,7 +88,7 @@ export const useMindMapStore = create<MindMapStore>()(
 
 						set({ workspaces: updateWorkspaceHelper(state, updatedWorkspace) });
 					},
-					setSubTopicNodeTitle(event, id) {
+					async setSubTopicNodeTitle(event, id) {
 						const state = get();
 						const activeWorkspace = activeWorkspaceHelper(state);
 						if (!activeWorkspace) return;
@@ -99,11 +99,13 @@ export const useMindMapStore = create<MindMapStore>()(
 
 						if (!subtopicNode) return;
 
+						const newTitle = event.target.value;
+
 						const updatedSubtopicNode: SubtopicNode = {
 							...subtopicNode,
 							data: {
 								...subtopicNode.data,
-								title: event.target.value,
+								title: newTitle,
 							},
 						};
 
@@ -115,6 +117,17 @@ export const useMindMapStore = create<MindMapStore>()(
 						};
 
 						set({ workspaces: updateWorkspaceHelper(state, updatedWorkspace) });
+
+						// Update in MongoDB
+						try {
+							await fetch(`/api/graph/nodes/${id}`, {
+								method: "PATCH",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ title: newTitle }),
+							});
+						} catch (error) {
+							console.error("Failed to update node title in DB:", error);
+						}
 					},
 					setRootNodeTitle(event) {
 						const state = get();
@@ -196,25 +209,56 @@ export const useMindMapStore = create<MindMapStore>()(
 							}),
 						});
 					},
-					createSubtopicNode() {
+					async createSubtopicNode() {
 						const state = get();
 						if (state.workspaces.length === 0) return;
 						const activeWorkspace = activeWorkspaceHelper(state);
 						if (!activeWorkspace) return;
-						const nodesSnapshot = activeWorkspace.nodes;
-						const newSubtopicNode: AppNode = {
-							id: crypto.randomUUID(),
-							type: "subtopic",
-							position: { x: 0, y: 0 },
-							data: { title: "New Subtopic" },
-						};
-						const updatedNodes = [...nodesSnapshot, newSubtopicNode];
-						set({
-							workspaces: updateWorkspaceHelper(state, {
-								...activeWorkspace,
-								nodes: updatedNodes,
-							}),
-						});
+
+						// Use the root node as parent
+						const rootNode = activeWorkspace.nodes.find(n => n.type === "root");
+						if (!rootNode) return;
+
+						try {
+							// Create node in MongoDB first
+							const response = await fetch("/api/graph/nodes", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({
+									title: "New Subtopic",
+									summary: "A new subtopic to explore",
+									parent_id: rootNode.id,
+									tags: [],
+								}),
+							});
+
+							if (!response.ok) {
+								const error = await response.json();
+								console.error("Failed to create node:", error);
+								return;
+							}
+
+							const data = await response.json();
+							const nodeId = data.node.id;
+
+							// Add to local state
+							const newSubtopicNode: AppNode = {
+								id: nodeId,
+								type: "subtopic",
+								position: { x: 0, y: 0 },
+								data: { title: data.node.title },
+							};
+
+							const updatedNodes = [...activeWorkspace.nodes, newSubtopicNode];
+							set({
+								workspaces: updateWorkspaceHelper(state, {
+									...activeWorkspace,
+									nodes: updatedNodes,
+								}),
+							});
+						} catch (error) {
+							console.error("Failed to create subtopic node:", error);
+						}
 					},
 					async createWorkspace() {
 						const title = "Main Topic of This Mindspace";
@@ -321,12 +365,46 @@ export const useMindMapStore = create<MindMapStore>()(
 										data: { title: node.title },
 									}));
 
-									return {
-										id: topic.id,
-										title: topic.title,
-										nodes: appNodes,
-										edges,
-										messages: {},
+								// Load messages for each node
+								const messages: Record<string, any[]> = {};
+								await Promise.all(
+									nodes.map(async (node: any) => {
+										try {
+											const interactionsRes = await fetch(`/api/graph/nodes/${node.id}/interactions`);
+											if (interactionsRes.ok) {
+												const interactionsData = await interactionsRes.json();
+												const interactions = interactionsData.interactions || [];
+												
+												// Convert to UIMessage format
+												const uiMessages = interactions.flatMap((interaction: any) => [
+													{
+														id: crypto.randomUUID(),
+														role: "user",
+														parts: [{ type: "text", text: interaction.user_message }],
+													},
+													{
+														id: crypto.randomUUID(),
+														role: "assistant",
+														parts: [{ type: "text", text: interaction.ai_response }],
+													},
+												]);
+												
+												if (uiMessages.length > 0) {
+													messages[node.id] = uiMessages;
+												}
+											}
+										} catch (e) {
+											console.error(`Failed to load messages for node ${node.id}:`, e);
+										}
+									})
+								);
+
+								return {
+									id: topic.id,
+									title: topic.title,
+									nodes: appNodes,
+									edges,
+									messages,
 										nodeChatSummaries: {},
 									};
 								})

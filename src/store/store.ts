@@ -629,6 +629,10 @@ export const useMindMapStore = create<MindMapStore>()(
 									const topicData = await topicResponse.json();
 									const nodes = topicData.nodes || [];
 									const edges = topicData.edges || [];
+									
+									// The topic itself is the root - use topic data for root info
+									const rootTitle = topicData.topic?.title || topic.title;
+									const rootId = topicData.topic?.id || topic.id;
 
 									// Convert DB nodes to AppNodes with metadata
 									const appNodes: AppNode[] = nodes.map((node: any) => {
@@ -636,8 +640,6 @@ export const useMindMapStore = create<MindMapStore>()(
 										
 										// Find parent node title for metadata
 										const parentNode = nodes.find((n: any) => n.id === node.parent_id);
-										// Find root node title for metadata
-										const rootNode = nodes.find((n: any) => n.id === node.root_id);
 
 										return {
 											id: node.id,
@@ -650,8 +652,8 @@ export const useMindMapStore = create<MindMapStore>()(
 													summary: node.summary,
 													parentId: node.parent_id,
 													parentTitle: parentNode?.title,
-													rootId: node.root_id,
-													rootTitle: rootNode?.title,
+													rootId: rootId,
+													rootTitle: rootTitle,
 													origin: "user", // Default to user created
 													tags: node.tags || [],
 												},

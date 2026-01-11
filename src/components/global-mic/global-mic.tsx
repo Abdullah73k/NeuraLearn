@@ -421,7 +421,7 @@ export default function GlobalMic() {
       </button>
 
       {/* Hint text */}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground text-center w-[100px] leading-relaxed">
         {state === "idle" && "Press G or click to ask a question"}
         {state === "recording" && "Listening... Press G or click to stop"}
         {state === "processing" && "Finding the best place for your question..."}

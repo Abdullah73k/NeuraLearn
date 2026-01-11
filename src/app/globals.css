@@ -41,41 +41,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --animate-shine: shine var(--duration) infinite linear;
-  @keyframes shine {
-  0% {
-    background-position: 0% 0%;
-    }
-  50% {
-    background-position: 100% 100%;
-    }
-  to {
-    background-position: 0% 0%;
-    }
-  }
+  --color-5: var(--color-5);
+  --color-4: var(--color-4);
+  --color-3: var(--color-3);
+  --color-2: var(--color-2);
+  --color-1: var(--color-1);
 }
-  --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
-  --color-color-5: var(--color-5);
-  --color-color-4: var(--color-4);
-  --color-color-3: var(--color-3);
-  --color-color-2: var(--color-2);
-  --color-color-1: var(--color-1);
-  @keyframes rainbow {
-  0% {
-    background-position: 0%;
-    }
-  100% {
-    background-position: 200%;
-    }
-  }
-  --animate-rippling: rippling var(--duration) ease-out
-;
-  @keyframes rippling {
-  0% {
-    opacity: 1;}
-  100% {
-    transform: scale(2);
-    opacity: 0;}}}
 
 :root {
   --radius: 0.625rem;
@@ -177,6 +148,24 @@
   }
 }
 
+@keyframes pop {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
 .animate-shine {
   animation: shine var(--duration) infinite linear;
+}
+
+.animate-pop {
+  animation: pop 0.3s ease-out forwards;
 }

@@ -1,12 +1,14 @@
 "use client";
 
+import { useState, useCallback, useEffect } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { SubtopicNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useMindMapActions } from "@/store/hooks";
+import { useMindMapActions, useGetSelectedNode } from "@/store/hooks";
 import { ShineBorder } from "@/components/ui/shine-border";
 import { NeonGradientBorder } from "@/components/ui/neon-gradient-border";
+import { NodeInfoTerminal } from "./node-info-terminal";
 
 /**
  * Subtopic Node Component
@@ -19,20 +21,65 @@ import { NeonGradientBorder } from "@/components/ui/neon-gradient-border";
  *
  * Selection state: When selected, displays a PURPLE border (border-purple-500 + ring-2 ring-purple-200)
  *
+ * Hover state: Shows NodeInfoTerminal with metadata on hover
+ * 
+ * Opacity: Non-selected nodes have reduced opacity when another node is selected
+ *
  * Data contract: Uses data.title (preserved)
  */
 export function SubtopicNode({ id, data, selected }: NodeProps<SubtopicNode>) {
 	const { setSubTopicNodeTitle } = useMindMapActions();
+	const selectedNode = useGetSelectedNode();
+	const [isHovered, setIsHovered] = useState(false);
+	const [showTerminal, setShowTerminal] = useState(false);
+
+	// Check if this node is the parent or root of the selected node
+	const isParentOfSelected = selectedNode?.data?.metadata?.parentId === id;
+	const isRootOfSelected = selectedNode?.data?.metadata?.rootId === id;
+
+	// Check if any node is selected but not this one (and this isn't parent/root of selected)
+	const hasOtherNodeSelected = selectedNode !== null && !selected && !isParentOfSelected && !isRootOfSelected;
+
+	// Debounced hover to prevent flickering
+	useEffect(() => {
+		let timeout: NodeJS.Timeout;
+		if (isHovered) {
+			timeout = setTimeout(() => setShowTerminal(true), 300);
+		} else {
+			setShowTerminal(false);
+		}
+		return () => clearTimeout(timeout);
+	}, [isHovered]);
+
+	const handleMouseEnter = useCallback(() => {
+		setIsHovered(true);
+	}, []);
+
+	const handleMouseLeave = useCallback(() => {
+		setIsHovered(false);
+	}, []);
+
 	return (
 		<div
 			className={cn(
-				"relative rounded-full bg-white p-4 w-[160px] h-[160px] flex items-center justify-center transition-all",
+				"relative rounded-full bg-white p-4 w-[160px] h-[160px] flex items-center justify-center transition-all duration-200",
 				selected
 					? "ring-2 ring-purple-200"
-					: ""
+					: "",
+				hasOtherNodeSelected && "opacity-40"
 			)}
 			style={{ boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)" }}
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
 		>
+			{/* Node Info Terminal - shows on hover for any node */}
+			<NodeInfoTerminal
+				isVisible={showTerminal}
+				nodeTitle={data.title}
+				nodeType="subtopic"
+				metadata={data.metadata}
+				position="top"
+			/>
 			{/* Neon gradient border effect - always visible */}
 			<NeonGradientBorder
 				borderWidth={2}

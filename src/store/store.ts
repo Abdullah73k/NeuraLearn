@@ -428,12 +428,27 @@ export const useMindMapStore = create<MindMapStore>()(
 								{ type: "subtopic" } as AppNode
 							);
 
-							// Create the new node
+							// Find root node for metadata
+							const rootNode = activeWorkspace.nodes.find(n => n.type === "root");
+
+							// Create the new node with metadata
 							const newSubtopicNode: AppNode = {
 								id: nodeId,
 								type: "subtopic",
 								position: newPosition,
-								data: { title: data.node.title },
+								data: { 
+									title: data.node.title,
+									metadata: {
+										createdAt: data.node.created_at || new Date().toISOString(),
+										summary: data.node.summary || "A new subtopic to explore",
+										parentId: parentNode.id,
+										parentTitle: parentNode.data.title,
+										rootId: rootNode?.id,
+										rootTitle: rootNode?.data.title,
+										origin: "user",
+										tags: data.node.tags || [],
+									},
+								},
 							};
 
 							// Create edge connecting parent to child with proper handles
@@ -517,7 +532,18 @@ export const useMindMapStore = create<MindMapStore>()(
 												id: newWorkspaceId,
 												type: "root",
 												position: { x: 0, y: 0 },
-												data: { title: data.topic.title },
+												data: { 
+													title: data.topic.title,
+													metadata: {
+														createdAt: data.topic.created_at || new Date().toISOString(),
+														summary: `Root topic for ${data.topic.title}`,
+														parentId: null,
+														rootId: newWorkspaceId,
+														rootTitle: data.topic.title,
+														origin: "user",
+														tags: [],
+													},
+												},
 											},
 										],
 										edges: [],
@@ -604,13 +630,34 @@ export const useMindMapStore = create<MindMapStore>()(
 									const nodes = topicData.nodes || [];
 									const edges = topicData.edges || [];
 
-									// Convert DB nodes to AppNodes
-									const appNodes: AppNode[] = nodes.map((node: any) => ({
-										id: node.id,
-										type: node.parent_id === null ? "root" : "subtopic",
-										position: node.position || { x: 0, y: 0 }, // Use saved position or default
-										data: { title: node.title },
-									}));
+									// Convert DB nodes to AppNodes with metadata
+									const appNodes: AppNode[] = nodes.map((node: any) => {
+										const isRoot = node.parent_id === null;
+										
+										// Find parent node title for metadata
+										const parentNode = nodes.find((n: any) => n.id === node.parent_id);
+										// Find root node title for metadata
+										const rootNode = nodes.find((n: any) => n.id === node.root_id);
+
+										return {
+											id: node.id,
+											type: isRoot ? "root" : "subtopic",
+											position: node.position || { x: 0, y: 0 }, // Use saved position or default
+											data: { 
+												title: node.title,
+												metadata: {
+													createdAt: node.created_at,
+													summary: node.summary,
+													parentId: node.parent_id,
+													parentTitle: parentNode?.title,
+													rootId: node.root_id,
+													rootTitle: rootNode?.title,
+													origin: "user", // Default to user created
+													tags: node.tags || [],
+												},
+											},
+										};
+									});
 
 								// Load messages for each node
 								const messages: Record<string, any[]> = {};

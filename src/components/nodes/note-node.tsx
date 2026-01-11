@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { NoteNode } from "@/types/nodes";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useMindMapActions } from "@/store/hooks";
+import { useMindMapActions, useGetSelectedNode } from "@/store/hooks";
 import { ShineBorder } from "@/components/ui/shine-border";
 import { NeonGradientBorder } from "@/components/ui/neon-gradient-border";
+import { NodeInfoTerminal } from "./node-info-terminal";
 
 /**
  * Note Node Component
@@ -21,19 +22,64 @@ import { NeonGradientBorder } from "@/components/ui/neon-gradient-border";
  *
  * Selection state: When selected, displays an ORANGE border (border-orange-500 + ring-2 ring-orange-200)
  *
+ * Hover state: Shows NodeInfoTerminal with metadata on hover
+ * 
+ * Opacity: Non-selected nodes have reduced opacity when another node is selected
+ *
  * Data contract: Uses data.title and data.description (both preserved and always displayed)
  */
 export function NoteNode({ id, data, selected }: NodeProps<NoteNode>) {
 	const [title, setTitle] = useState(data.title);
 	const [description, setDescription] = useState(data.description);
 	const { setNoteNodeTitle, setNoteNodeDescription } = useMindMapActions();
+	const selectedNode = useGetSelectedNode();
+	const [isHovered, setIsHovered] = useState(false);
+	const [showTerminal, setShowTerminal] = useState(false);
+
+	// Check if this node is the parent or root of the selected node
+	const isParentOfSelected = selectedNode?.data?.metadata?.parentId === id;
+	const isRootOfSelected = selectedNode?.data?.metadata?.rootId === id;
+
+	// Check if any node is selected but not this one (and this isn't parent/root of selected)
+	const hasOtherNodeSelected = selectedNode !== null && !selected && !isParentOfSelected && !isRootOfSelected;
+
+	// Debounced hover to prevent flickering
+	useEffect(() => {
+		let timeout: NodeJS.Timeout;
+		if (isHovered) {
+			timeout = setTimeout(() => setShowTerminal(true), 300);
+		} else {
+			setShowTerminal(false);
+		}
+		return () => clearTimeout(timeout);
+	}, [isHovered]);
+
+	const handleMouseEnter = useCallback(() => {
+		setIsHovered(true);
+	}, []);
+
+	const handleMouseLeave = useCallback(() => {
+		setIsHovered(false);
+	}, []);
+
 	return (
 		<div
 			className={cn(
-				"relative rounded-2xl bg-white px-4 py-3 min-w-[240px] min-h-[180px] flex flex-col transition-all"
+				"relative rounded-2xl bg-white px-4 py-3 min-w-[240px] min-h-[180px] flex flex-col transition-all duration-200",
+				hasOtherNodeSelected && "opacity-40"
 			)}
 			style={{ boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)" }}
+			onMouseEnter={handleMouseEnter}
+			onMouseLeave={handleMouseLeave}
 		>
+			{/* Node Info Terminal - shows on hover for any node */}
+			<NodeInfoTerminal
+				isVisible={showTerminal}
+				nodeTitle={data.title}
+				nodeType="note"
+				metadata={data.metadata}
+				position="top"
+			/>
 			{/* Neon gradient border effect - always visible */}
 			<NeonGradientBorder
 				borderWidth={2}

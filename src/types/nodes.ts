@@ -1,11 +1,35 @@
 import type { Node } from "@xyflow/react";
 
 /**
+ * Metadata for node info terminal display (shown on hover)
+ */
+export type NodeMetadata = {
+  /** When the node was created */
+  createdAt?: Date | string;
+  /** Summary of the node content */
+  summary?: string;
+  /** Parent node ID */
+  parentId?: string | null;
+  /** Parent node title (for display) */
+  parentTitle?: string;
+  /** Root node ID */
+  rootId?: string;
+  /** Root node title (for display) */
+  rootTitle?: string;
+  /** Point of origin (how the node was created) */
+  origin?: "user" | "ai-suggested" | "ai-generated" | "imported";
+  /** Tags associated with the node */
+  tags?: string[];
+};
+
+/**
  * Data payload for the root node shown at the center of the graph.
  * React Flow passes this into the custom component via `data`.
  */
 export type RootNodeData = {
   title: string;
+  /** Node metadata for info terminal */
+  metadata?: NodeMetadata;
 };
 
 /**
@@ -14,6 +38,8 @@ export type RootNodeData = {
  */
 export type SubtopicNodeData = {
   title: string;
+  /** Node metadata for info terminal */
+  metadata?: NodeMetadata;
 };
 
 /**
@@ -23,6 +49,8 @@ export type SubtopicNodeData = {
 export type NoteNodeData = {
   title: string;
   description: string;
+  /** Node metadata for info terminal */
+  metadata?: NodeMetadata;
 };
 
 /**

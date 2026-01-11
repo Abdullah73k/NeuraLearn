@@ -32,7 +32,7 @@ export function SubtopicNode({ id, data, selected }: NodeProps<SubtopicNode>) {
 	const selectedNode = useGetSelectedNode();
 	const [isHovered, setIsHovered] = useState(false);
 	const [showTerminal, setShowTerminal] = useState(false);
-	const nodeRef = useRef<HTMLDivElement>(null);
+	const nodeRef = useRef<HTMLDivElement>(null!);
 
 	// Check if this node is the parent or root of the selected node
 	const isParentOfSelected = selectedNode?.data?.metadata?.parentId === id;

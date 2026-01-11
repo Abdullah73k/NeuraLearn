@@ -32,7 +32,7 @@ export function RootNode({ id, data, selected }: NodeProps<RootNode>) {
 	const selectedNode = useGetSelectedNode();
 	const [isHovered, setIsHovered] = useState(false);
 	const [showTerminal, setShowTerminal] = useState(false);
-	const nodeRef = useRef<HTMLDivElement>(null);
+	const nodeRef = useRef<HTMLDivElement>(null!);
 
 	// Check if this node is the parent or root of the selected node
 	const isParentOfSelected = selectedNode?.data?.metadata?.parentId === id;

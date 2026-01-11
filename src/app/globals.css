@@ -46,6 +46,34 @@
   --color-3: var(--color-3);
   --color-2: var(--color-2);
   --color-1: var(--color-1);
+
+  --animate-shine: shine var(--duration) infinite linear;
+
+  @keyframes shine {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    100% {
+      background-position: 0% 0%;
+    }
+  }
+
+  @keyframes pop {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(0);
+      opacity: 0;
+    }
+  }
 }
 
 :root {
@@ -134,36 +162,6 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-@keyframes shine {
-  0% {
-    background-position: 0% 0%;
-  }
-  50% {
-    background-position: 100% 100%;
-  }
-  100% {
-    background-position: 0% 0%;
-  }
-}
-
-@keyframes pop {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  100% {
-    transform: scale(0);
-    opacity: 0;
-  }
-}
-
-.animate-shine {
-  animation: shine var(--duration) infinite linear;
 }
 
 .animate-pop {

@@ -150,7 +150,7 @@ export default function GlobalMic() {
       if (routingResult.action === "navigate_to_new") {
         // Reload workspaces to get the new node
         const { useMindMapStore } = await import("@/store/store");
-        await useMindMapStore.getState().loadWorkspacesFromDb();
+        await useMindMapStore.getState().actions.loadWorkspacesFromDb();
         
         // Small delay to ensure state is updated
         await new Promise(resolve => setTimeout(resolve, 100));

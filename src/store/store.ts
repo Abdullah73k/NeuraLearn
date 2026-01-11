@@ -278,7 +278,11 @@ export const useMindMapStore = create<MindMapStore>()(
 						}
 					},
 					async createWorkspace() {
-						const title = "Main Topic of This Mindspace";
+						const state = get();
+						const existingCount = state.workspaces.length;
+						const title = existingCount === 0 
+							? "Main Topic of This Mindspace" 
+							: `New Mindspace ${existingCount + 1}`;
 						
 						try {
 							// Create topic in MongoDB first
@@ -291,13 +295,13 @@ export const useMindMapStore = create<MindMapStore>()(
 								}),
 							});
 
+							const data = await response.json();
+							
 							if (!response.ok) {
-								const error = await response.json();
-								console.error("Failed to create topic:", error);
+								console.error("Failed to create topic:", data.error || data);
 								return;
 							}
 
-							const data = await response.json();
 							const newWorkspaceId = data.topic.id;
 
 							// Add to local state

@@ -56,44 +56,44 @@ export async function POST(req: Request) {
             model: google("gemini-2.0-flash"),
             schema: z.object({
                 action: z.enum(["use_existing", "create_new"]),
-                reasoning: z.string(),
+                reasoning: z.string().max(200),
                 existingNodeId: z.string().optional(),
                 parentNodeId: z.string().optional(),
-                suggestedTitle: z.string().optional(),
-                suggestedSummary: z.string().optional(),
+                suggestedTitle: z.string().max(50).optional(),
+                suggestedSummary: z.string().max(150).optional(),
             }) as any,
-            prompt: `You are an intelligent routing system for a knowledge graph. Your job is to help users navigate their personal knowledge base efficiently.
+            maxTokens: 500,
+            prompt: `You are a routing system for a knowledge graph. Route user questions to the right place.
 
-## Available Nodes in the Knowledge Graph:
+## Available Nodes:
 ${nodeDescriptions}
 
 ## User's Question:
 "${question}"
 
-## Routing Rules:
-1. **USE EXISTING NODE** if:
-   - There's a node whose summary/title is DIRECTLY relevant to the question
-   - The question is asking about something already covered or clearly within that node's scope
-   - Example: Question "What is LeBron's jersey number?" → Route to "Los Angeles Lakers" node if it exists and discusses Lakers players
+## Decision Logic:
 
-2. **CREATE NEW NODE** if:
-   - The question is about a subtopic that deserves its own dedicated space
-   - There's a relevant PARENT node, but the specific topic needs its own node
-   - Example: Question "Tell me about Stephen Curry" when "NBA" exists but no Warriors/Curry node → Create "Stephen Curry" or "Golden State Warriors" under "NBA"
-   
-3. **For new nodes**, always:
-   - Pick the MOST RELEVANT parent (use summaries to determine relevance)
-   - If the question is completely unrelated to all existing nodes, use the ROOT node as parent
-   - Suggest a clear, concise title (3-5 words)
-   - Suggest a brief initial summary
+**USE EXISTING NODE** (action: "use_existing") ONLY when:
+- The question is asking for MORE INFO about something ALREADY discussed in that node's summary
+- Example: If "Lakers" node summary mentions "LeBron scored 40 points", and user asks "How many points did LeBron score?" → use_existing
 
-## Important:
-- Prioritize summaries over titles when determining relevance
-- Nodes without summaries are unexplored - they might still be relevant based on title
-- Think about the knowledge hierarchy - place new nodes where they logically belong
-- Don't create duplicate nodes if an existing one covers the topic
+**CREATE NEW NODE** (action: "create_new") when:
+- The question is about a NEW TOPIC, PERSON, or CONCEPT not yet covered
+- Questions like "Who is [person]?" or "What is [concept]?" almost ALWAYS need a new node
+- Find the most SEMANTICALLY RELATED parent node
 
-Make your routing decision:`,
+## Examples:
+- "Who is LeBron James?" + node "LA Lakers" exists → CREATE "LeBron James" under "LA Lakers" (he plays for Lakers)
+- "Who is Giannis?" + node "Milwaukee Bucks" exists → CREATE "Giannis Antetokounmpo" under "Milwaukee Bucks" (he plays for Bucks)
+- "What is the chain rule?" + node "Calculus" exists → CREATE "Chain Rule" under "Calculus"
+- "Tell me more about derivatives" + node "Derivatives" exists with relevant summary → USE EXISTING "Derivatives"
+
+## CRITICAL:
+- For "Who is X?" questions about people → ALWAYS create_new (people deserve their own nodes)
+- Pick the parent that is most SEMANTICALLY related, not just the root
+- suggestedTitle: MAX 3-4 words (person's name or concept name)
+
+Respond with your routing decision:`,
         });
 
         const decision = result.object as RoutingDecision;

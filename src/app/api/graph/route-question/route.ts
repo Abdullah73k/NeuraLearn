@@ -150,28 +150,58 @@ export async function POST(req: Request) {
 
         console.log("Proceeding to routing decision with search context:", !!searchContext);
 
+        // Clean the question - remove transcription artifacts like "..." at start
+        const cleanedQuestion = question.replace(/^\.{2,}\s*/g, '').trim();
+        
         // Extract the main topic from the question for better routing decisions
-        const questionLower = question.toLowerCase();
         const topicPatterns = [
-            /(?:what is|explain|tell me about|who is|how does|give me an example of)\s+(?:the\s+)?(.+?)(?:\?|$)/i,
+            /(?:what is|explain|tell me about|who is|how does|give me an example of|an example of)\s+(?:the\s+)?(.+?)(?:\?|$)/i,
             /(.+?)\s+(?:example|explanation|definition)/i,
         ];
         let extractedTopic = "";
         for (const pattern of topicPatterns) {
-            const match = question.match(pattern);
+            const match = cleanedQuestion.match(pattern);
             if (match && match[1]) {
-                extractedTopic = match[1].trim().replace(/\?$/, "");
+                extractedTopic = match[1].trim().replace(/\?$/, '').replace(/^the\s+/i, '');
                 break;
             }
         }
         
-        // Check if a node with this exact topic already exists
-        const topicExistsAsNode = extractedTopic && allNodes.some(n => 
-            n.title.toLowerCase().includes(extractedTopic.toLowerCase()) ||
-            extractedTopic.toLowerCase().includes(n.title.toLowerCase())
-        );
+        // Check if a node with this exact topic already exists (fuzzy match)
+        const topicExistsAsNode = extractedTopic && allNodes.some(n => {
+            const titleLower = n.title.toLowerCase().replace(/[-_]/g, ' ');
+            const topicLower = extractedTopic.toLowerCase().replace(/[-_]/g, ' ');
+            // Match if title contains topic or topic contains title
+            // Also handle variations like "U-Substitution" vs "u substitution"
+            return titleLower.includes(topicLower) || 
+                   topicLower.includes(titleLower) ||
+                   titleLower.replace(/\s+/g, '').includes(topicLower.replace(/\s+/g, '')) ||
+                   topicLower.replace(/\s+/g, '').includes(titleLower.replace(/\s+/g, ''));
+        });
         
-        console.log("Extracted topic:", extractedTopic, "| Exists as node:", topicExistsAsNode);
+        // Find the matching node if it exists
+        const matchingNode = extractedTopic ? allNodes.find(n => {
+            const titleLower = n.title.toLowerCase().replace(/[-_]/g, ' ');
+            const topicLower = extractedTopic.toLowerCase().replace(/[-_]/g, ' ');
+            return titleLower.includes(topicLower) || 
+                   topicLower.includes(titleLower) ||
+                   titleLower.replace(/\s+/g, '').includes(topicLower.replace(/\s+/g, '')) ||
+                   topicLower.replace(/\s+/g, '').includes(titleLower.replace(/\s+/g, ''));
+        }) : null;
+        
+        console.log("Extracted topic:", extractedTopic, "| Exists as node:", topicExistsAsNode, "| Matching node:", matchingNode?.title);
+
+        // If we found an exact matching node, route to it directly without AI
+        if (topicExistsAsNode && matchingNode) {
+            console.log("Direct routing to existing node:", matchingNode.title);
+            return Response.json({
+                action: "navigate_to_existing",
+                nodeId: matchingNode.id,
+                nodeTitle: matchingNode.title,
+                reasoning: `Found existing node "${matchingNode.title}" matching topic "${extractedTopic}"`,
+                question: cleanedQuestion,
+            });
+        }
 
         // Use AI to determine the best routing
         const result = await generateObject({
@@ -193,10 +223,10 @@ ${nodeDescriptions}
 ${allNodesList}
 
 ## User's Question:
-"${question}"
+"${cleanedQuestion}"
 
 ## Extracted Topic: "${extractedTopic}"
-## Does a node with this EXACT topic exist? ${topicExistsAsNode ? "YES" : "NO"}
+## Does a node with this EXACT topic exist? ${topicExistsAsNode ? "YES - USE EXISTING!" : "NO - Consider creating new"}
 
 ## ROUTING RULES (FOLLOW EXACTLY):
 

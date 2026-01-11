@@ -284,10 +284,11 @@ const Chat = () => {
 							setModel={setModel}
 							webSearch={webSearch}
 							setWebSearch={setWebSearch}
-						models={models}
-						textareaRef={textareaRef}
-					/>
-						<PromptInputSubmit disabled={!input && !status} status={status} />
+							models={models}
+							textareaRef={textareaRef}
+							onVoiceSubmit={(text) => routeAndSendMessage(text)}
+						/>
+						<PromptInputSubmit disabled={(!input && !status) || isRouting} status={status} />
 					</PromptInputFooter>
 				</PromptInput>
 			</div>

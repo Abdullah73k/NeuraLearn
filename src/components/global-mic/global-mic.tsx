@@ -15,6 +15,7 @@ import {
   XIcon,
   PlusIcon,
   ArrowRightIcon,
+  StickyNoteIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -29,12 +30,25 @@ type RoutingResult = {
   question: string;
 };
 
+type NoteResult = {
+  action: "create_note";
+  targetNodeId: string;
+  targetNodeTitle: string;
+  noteQuery: string; // The user's original query
+  noteTitle: string; // AI-generated title
+  noteContent: string; // AI-generated content
+  reasoning: string;
+};
+
+type CommandResult = RoutingResult | NoteResult;
+
 type GlobalMicState = "idle" | "recording" | "processing" | "confirming";
 
 export default function GlobalMic() {
   const [state, setState] = useState<GlobalMicState>("idle");
   const [transcription, setTranscription] = useState<string>("");
   const [routingResult, setRoutingResult] = useState<RoutingResult | null>(null);
+  const [noteResult, setNoteResult] = useState<NoteResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -46,6 +60,7 @@ export default function GlobalMic() {
     setSelectedNode,
     addMessageToNode,
     setIsChatBarOpen,
+    createNoteNodeOnTarget,
   } = useMindMapActions();
 
   // Get nodes for context
@@ -123,7 +138,68 @@ export default function GlobalMic() {
       const transcribedText = transcribeData.text;
       setTranscription(transcribedText);
 
-      // Step 2: Intelligent routing - find the best node for this question
+      // Step 2: Classify the command (note creation vs question)
+      const classifyResponse = await fetch("/api/classify-command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcription: transcribedText,
+          nodes: nodes.map(n => ({ id: n.id, title: n.data.title, type: n.type })),
+          rootId: activeWorkspace?.id,
+        }),
+      });
+
+      if (classifyResponse.ok) {
+        const classification = await classifyResponse.json();
+        
+        // If it's a note creation command with high confidence
+        if (classification.commandType === "create_note" && classification.confidence > 0.7 && classification.targetNodeId) {
+          // Get the target node title for context
+          const targetNodeTitle = classification.targetNodeTitle || "Unknown Node";
+          const noteQuery = classification.noteContent || transcribedText;
+
+          // Call AI to research and generate note content
+          const generateResponse = await fetch("/api/generate-note", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nodeTitle: targetNodeTitle,
+              noteQuery: noteQuery,
+            }),
+          });
+
+          if (generateResponse.ok) {
+            const generatedNote = await generateResponse.json();
+            
+            setNoteResult({
+              action: "create_note",
+              targetNodeId: classification.targetNodeId,
+              targetNodeTitle: targetNodeTitle,
+              noteQuery: noteQuery,
+              noteTitle: generatedNote.title,
+              noteContent: generatedNote.content,
+              reasoning: classification.reasoning || classification.explanation,
+            });
+            setState("confirming");
+            return;
+          } else {
+            // Fallback: use the query as content if generation fails
+            setNoteResult({
+              action: "create_note",
+              targetNodeId: classification.targetNodeId,
+              targetNodeTitle: targetNodeTitle,
+              noteQuery: noteQuery,
+              noteTitle: "Note",
+              noteContent: noteQuery,
+              reasoning: classification.reasoning || classification.explanation,
+            });
+            setState("confirming");
+            return;
+          }
+        }
+      }
+
+      // Step 3: If not a note command, do intelligent routing for question
       // Get recent chat messages for context (last 3 messages to understand "his", "it", etc.)
       // IMPORTANT: Only use selectedNode if it belongs to the current workspace
       const nodeInCurrentWorkspace = selectedNode?.id && activeWorkspace?.nodes.some(n => n.id === selectedNode.id);
@@ -269,10 +345,30 @@ export default function GlobalMic() {
     }
   }, [routingResult, activeWorkspace, setSelectedNode, setIsChatBarOpen]);
 
+  const executeNoteCreation = useCallback(() => {
+    if (!noteResult || !activeWorkspace) return;
+
+    try {
+      // Create the note node connected to the target node with AI-generated title and content
+      createNoteNodeOnTarget(noteResult.targetNodeId, noteResult.noteTitle, noteResult.noteContent);
+      console.log("Note node created successfully for:", noteResult.targetNodeTitle);
+
+      // Reset state
+      setState("idle");
+      setTranscription("");
+      setNoteResult(null);
+    } catch (err) {
+      console.error("Note creation error:", err);
+      setError("Failed to create note");
+      setState("idle");
+    }
+  }, [noteResult, activeWorkspace, createNoteNodeOnTarget]);
+
   const cancelRouting = useCallback(() => {
     setState("idle");
     setTranscription("");
     setRoutingResult(null);
+    setNoteResult(null);
     setError(null);
   }, []);
 
@@ -334,7 +430,7 @@ export default function GlobalMic() {
                 Dismiss
               </Button>
             </div>
-          ) : (
+          ) : routingResult ? (
             <>
               {/* Transcription */}
               <div className="mb-3">
@@ -382,7 +478,60 @@ export default function GlobalMic() {
                 </Button>
               </div>
             </>
-          )}
+          ) : noteResult ? (
+            <>
+              {/* Transcription */}
+              <div className="mb-3">
+                <p className="text-xs text-muted-foreground mb-1">Your command:</p>
+                <p className="text-sm font-medium">&quot;{transcription}&quot;</p>
+              </div>
+
+              {/* Note Details */}
+              <div className="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <StickyNoteIcon className="size-4 text-amber-600" />
+                  <p className="text-sm text-amber-700">
+                    Add note to <span className="font-semibold">&quot;{noteResult.targetNodeTitle}&quot;</span>
+                  </p>
+                </div>
+                
+                {/* AI-generated title */}
+                <div className="mt-3">
+                  <p className="text-xs text-amber-600 mb-1">Title:</p>
+                  <p className="text-sm font-semibold text-amber-900">{noteResult.noteTitle}</p>
+                </div>
+                
+                {/* AI-generated content */}
+                <div className="mt-2">
+                  <p className="text-xs text-amber-600 mb-1">Content:</p>
+                  <p className="text-xs text-amber-800 bg-white/70 p-2 rounded-lg border border-amber-100 leading-relaxed">
+                    {noteResult.noteContent}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelRouting}
+                  className="rounded-full gap-2"
+                >
+                  <XIcon className="size-4" />
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={executeNoteCreation}
+                  className="rounded-full gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                >
+                  <CheckIcon className="size-4" />
+                  Create Note
+                </Button>
+              </div>
+            </>
+          ) : null}
         </div>
       )}
 
@@ -424,8 +573,8 @@ export default function GlobalMic() {
       <p className="text-xs text-muted-foreground text-center w-[100px] leading-relaxed">
         {state === "idle" && "Press G or click to ask a question"}
         {state === "recording" && "Listening... Press G or click to stop"}
-        {state === "processing" && "Finding the best place for your question..."}
-        {state === "confirming" && "Confirm routing"}
+        {state === "processing" && "Processing your command..."}
+        {state === "confirming" && (noteResult ? "Confirm note" : "Confirm routing")}
       </p>
     </div>
   );

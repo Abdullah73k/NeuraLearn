@@ -51,7 +51,7 @@ export function NoteNode({ id, data, selected }: NodeProps<NoteNode>) {
 			)}
 			
 			{/* Header area with title - similar to "output" label in reference */}
-			<div className="mb-3 pb-2 border-b border-neutral-100">
+			<div className="mb-2 pb-2 border-b border-neutral-100">
 				<Input
 					value={data.title}
 					onChange={(event) => {
@@ -63,17 +63,11 @@ export function NoteNode({ id, data, selected }: NodeProps<NoteNode>) {
 				/>
 			</div>
 
-			{/* Body area with description - always visible */}
+			{/* Body area with description - auto-sizes to content */}
 			<div className="flex-1">
-				<Textarea
-					value={data.description}
-					onChange={(event) => {
-						setNoteNodeDescription(event, id);
-					}}
-					className="min-h-[100px] w-full resize-none bg-transparent text-xs text-neutral-600 border-none focus:outline-none focus:ring-0 px-0 leading-relaxed"
-					placeholder="Add description..."
-					aria-label="Note description"
-				/>
+				<p className="text-xs text-neutral-600 leading-relaxed whitespace-pre-wrap">
+					{data.description || "Add description..."}
+				</p>
 			</div>
 
 			{/* React Flow Handles - positioned absolutely */}

@@ -38,6 +38,7 @@ export type MindMapActions = {
 	setCurrentRelationType: (relation: RelationType) => void;
 	setActiveWorkspace: (id: string) => void;
 	createNoteNode: () => void;
+	createNoteNodeOnTarget: (targetNodeId: string, noteTitle: string, noteContent: string) => void;
 	createSubtopicNode: () => Promise<void>;
 	loadWorkspacesFromDb: () => Promise<void>;
 	onNodesChangeForActive: (changes: NodeChange<AppNode>[]) => void;

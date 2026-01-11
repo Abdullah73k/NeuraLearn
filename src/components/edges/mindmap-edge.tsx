@@ -98,132 +98,75 @@ export default function MindMapEdge({
 		targetPosition,
 	});
 
-	// Generate unique gradient and animation IDs for this edge
-	const gradientId = `pulse-gradient-${id}`;
-	const animationDelay = pathIndex * 0.15; // Stagger animation based on position in path
+	// Animation delay based on position in path (parent to child cascade)
+	const animationDelay = pathIndex * 0.2;
+
+	// Unique IDs for this edge's gradient
+	const gradientId = `beam-gradient-${id}`;
 
 	return (
 		<>
-			{/* Define gradient for the pulse effect */}
-			{isInActivePath && (
-				<defs>
-					<linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-						<stop offset="0%" stopColor={COLORS[relation]} stopOpacity="0.3">
-							<animate
-								attributeName="offset"
-								values="-1;1"
-								dur="1.5s"
-								repeatCount="indefinite"
-								begin={`${animationDelay}s`}
-							/>
-						</stop>
-						<stop offset="15%" stopColor={COLORS[relation]} stopOpacity="1">
-							<animate
-								attributeName="offset"
-								values="-0.85;1.15"
-								dur="1.5s"
-								repeatCount="indefinite"
-								begin={`${animationDelay}s`}
-							/>
-						</stop>
-						<stop offset="30%" stopColor="#ffffff" stopOpacity="1">
-							<animate
-								attributeName="offset"
-								values="-0.7;1.3"
-								dur="1.5s"
-								repeatCount="indefinite"
-								begin={`${animationDelay}s`}
-							/>
-						</stop>
-						<stop offset="45%" stopColor={COLORS[relation]} stopOpacity="1">
-							<animate
-								attributeName="offset"
-								values="-0.55;1.45"
-								dur="1.5s"
-								repeatCount="indefinite"
-								begin={`${animationDelay}s`}
-							/>
-						</stop>
-						<stop offset="60%" stopColor={COLORS[relation]} stopOpacity="0.3">
-							<animate
-								attributeName="offset"
-								values="-0.4;1.6"
-								dur="1.5s"
-								repeatCount="indefinite"
-								begin={`${animationDelay}s`}
-							/>
-						</stop>
-					</linearGradient>
-				</defs>
-			)}
-
-			{/* Base edge - always visible */}
+			{/* Base edge - light gray when not active, colored when active */}
 			<BaseEdge
 				id={id}
 				path={edgePath}
 				style={{
 					stroke: isInActivePath ? COLORS[relation] : "#d1d5db",
-					strokeWidth: isInActivePath ? 3 : 2,
-					transition: "stroke-width 0.3s ease, stroke 0.3s ease",
+					strokeWidth: 2,
+					strokeOpacity: isInActivePath ? 0.3 : 1,
 				}}
 			/>
 
-			{/* Animated pulse overlay - only when in active path */}
+			{/* Animated beam - only when in active path */}
 			{isInActivePath && (
 				<>
-					{/* Glow effect */}
+					<defs>
+						<linearGradient
+							id={gradientId}
+							gradientUnits="userSpaceOnUse"
+							x1={sourceX}
+							y1={sourceY}
+							x2={targetX}
+							y2={targetY}
+						>
+							<stop offset="0%" stopColor={COLORS[relation]} stopOpacity="0">
+								<animate
+									attributeName="offset"
+									values="-0.2;1"
+									dur="0.8s"
+									repeatCount="indefinite"
+									begin={`${animationDelay}s`}
+								/>
+							</stop>
+							<stop offset="10%" stopColor={COLORS[relation]} stopOpacity="1">
+								<animate
+									attributeName="offset"
+									values="-0.1;1.1"
+									dur="0.8s"
+									repeatCount="indefinite"
+									begin={`${animationDelay}s`}
+								/>
+							</stop>
+							<stop offset="20%" stopColor={COLORS[relation]} stopOpacity="0">
+								<animate
+									attributeName="offset"
+									values="0;1.2"
+									dur="0.8s"
+									repeatCount="indefinite"
+									begin={`${animationDelay}s`}
+								/>
+							</stop>
+						</linearGradient>
+					</defs>
+
+					{/* The animated beam path */}
 					<path
 						d={edgePath}
 						fill="none"
-						stroke={COLORS[relation]}
-						strokeWidth="8"
-						strokeOpacity="0.2"
-						style={{
-							filter: "blur(4px)",
-						}}
+						stroke={`url(#${gradientId})`}
+						strokeWidth={3}
+						strokeLinecap="round"
 					/>
-
-					{/* Pulse traveling along the edge */}
-					<circle r="6" fill={COLORS[relation]}>
-						<animateMotion
-							dur="1.5s"
-							repeatCount="indefinite"
-							begin={`${animationDelay}s`}
-							path={edgePath}
-						/>
-						<animate
-							attributeName="r"
-							values="4;7;4"
-							dur="0.5s"
-							repeatCount="indefinite"
-						/>
-						<animate
-							attributeName="opacity"
-							values="0.8;1;0.8"
-							dur="0.5s"
-							repeatCount="indefinite"
-						/>
-					</circle>
-
-					{/* Trailing particle effect */}
-					<circle r="3" fill="#ffffff" opacity="0.8">
-						<animateMotion
-							dur="1.5s"
-							repeatCount="indefinite"
-							begin={`${animationDelay + 0.1}s`}
-							path={edgePath}
-						/>
-					</circle>
-
-					{/* Second trailing particle */}
-					<circle r="2" fill={COLORS[relation]} opacity="0.6">
-						<animateMotion
-							dur="1.5s"
-							repeatCount="indefinite"
-							begin={`${animationDelay + 0.2}s`}
-							path={edgePath}
-						/>
-					</circle>
 				</>
 			)}
 		</>

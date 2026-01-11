@@ -336,6 +336,53 @@ export const useMindMapStore = create<MindMapStore>()(
 							}),
 						});
 					},
+					createNoteNodeOnTarget(targetNodeId: string, noteTitle: string, noteContent: string) {
+						const state = get();
+						if (state.workspaces.length === 0) return;
+						const activeWorkspace = activeWorkspaceHelper(state);
+						if (!activeWorkspace) return;
+
+						// Find the target node
+						const targetNode = activeWorkspace.nodes.find(n => n.id === targetNodeId);
+						if (!targetNode) {
+							console.error("Target node not found:", targetNodeId);
+							return;
+						}
+
+						// Calculate position (offset from target node)
+						const newPosition = {
+							x: targetNode.position.x + 200,
+							y: targetNode.position.y + 50,
+						};
+
+						const nodeId = crypto.randomUUID();
+
+						// Create edge from target to note
+						const newEdge: MindMapEdge = {
+							id: crypto.randomUUID(),
+							source: targetNodeId,
+							target: nodeId,
+							sourceHandle: targetNode.type === "root" ? "root-right" : "subtopic-right",
+							targetHandle: "note-left-target",
+							type: "mindmap",
+							data: { relationType: "background" },
+						};
+
+						const newNoteNode: AppNode = {
+							id: nodeId,
+							type: "note",
+							position: newPosition,
+							data: { title: noteTitle, description: noteContent },
+						};
+
+						set({
+							workspaces: updateWorkspaceHelper(state, {
+								...activeWorkspace,
+								nodes: [...activeWorkspace.nodes, newNoteNode],
+								edges: [...activeWorkspace.edges, newEdge],
+							}),
+						});
+					},
 					async createSubtopicNode() {
 						const state = get();
 						if (state.workspaces.length === 0) return;

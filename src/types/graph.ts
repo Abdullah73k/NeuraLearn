@@ -1,4 +1,10 @@
 // Graph Node Types
+export interface NodeNote {
+  id: string;
+  content: string;
+  created_at: Date;
+}
+
 export interface Node {
   _id?: string;
   id: string;
@@ -7,6 +13,9 @@ export interface Node {
   parent_id: string | null;
   root_id: string;
   tags: string[];
+
+  // User notes (personal annotations, not used by AI)
+  notes?: NodeNote[];
 
   // Vector embedding for semantic search (768 dimensions from text-embedding-004)
   embedding?: number[];

@@ -16,13 +16,21 @@ type CommandType =
   | "copy_response"
   | "navigate_to"
   | "connect_nodes"
+  | "create_note"
+  | "question"
   | "unknown";
 
 type ClassifiedCommand = {
   command: CommandType;
+  commandType: CommandType; // Alias for GlobalMic compatibility
   params: Record<string, string>;
   confidence: number;
   explanation: string;
+  reasoning: string; // Alias for GlobalMic compatibility
+  // Note-specific fields
+  targetNodeId?: string;
+  targetNodeTitle?: string;
+  noteContent?: string;
 };
 
 export async function POST(req: Request) {
@@ -66,7 +74,18 @@ export async function POST(req: Request) {
    - Parameters: source_node_id, target_node_id
    - Example: "Connect derivatives to integration" → connect_nodes
 
-6. **unknown** - Command cannot be understood or doesn't fit any category
+6. **create_note** - Add a personal note/annotation to a node (user wants to save a note for themselves)
+   - Parameters: target_node_id, target_node_title, note_content
+   - Examples:
+     - "Create a note on calculus that says remember to practice chain rule" → create_note
+     - "Add a note to derivatives saying this is important for the exam" → create_note
+     - "Note on integration: review u-substitution" → create_note
+     - "Remind me on the physics node that I need to ask about momentum" → create_note
+
+7. **question** - User is asking a question to learn about a topic (not a command)
+   - Examples: "What is calculus?", "Explain derivatives", "How does integration work?"
+
+8. **unknown** - Command cannot be understood or doesn't fit any category
 
 ## Current Nodes in Graph:
 ${nodeList || "No nodes available"}
@@ -84,15 +103,19 @@ ${currentRelationType}
 - Match node references semantically (e.g., "calc" matches "Calculus", "deriv" matches "Derivatives")
 - If creating a node and no source is specified, use the root node as the source
 - Be generous in interpretation - the user is speaking, so there may be speech-to-text errors
+- IMPORTANT: If the user says anything like "create a note", "add a note", "note on", "remind me on", classify as create_note
+- For create_note: extract the target node and the note content (everything after "that says", "saying", etc.)
 - Return a confidence score from 0 to 1
 
 Respond with ONLY valid JSON in this exact format:
 {
-  "command": "create_node" | "delete_node" | "copy_response" | "navigate_to" | "connect_nodes" | "unknown",
+  "command": "create_node" | "delete_node" | "copy_response" | "navigate_to" | "connect_nodes" | "create_note" | "question" | "unknown",
   "params": {
     "source_node_id": "uuid if applicable",
     "target_node_id": "uuid if applicable",
-    "new_node_title": "title if creating node"
+    "target_node_title": "title of target node if applicable",
+    "new_node_title": "title if creating node",
+    "note_content": "content of the note if create_note"
   },
   "confidence": 0.95,
   "explanation": "Brief explanation of the interpretation"
@@ -115,7 +138,21 @@ Respond with ONLY valid JSON in this exact format:
       );
     }
 
-    const classifiedCommand: ClassifiedCommand = JSON.parse(jsonMatch[0]);
+    const parsedResponse = JSON.parse(jsonMatch[0]);
+
+    // Build the response with both old and new field names for compatibility
+    const classifiedCommand: ClassifiedCommand = {
+      command: parsedResponse.command,
+      commandType: parsedResponse.command, // Alias for GlobalMic
+      params: parsedResponse.params || {},
+      confidence: parsedResponse.confidence,
+      explanation: parsedResponse.explanation,
+      reasoning: parsedResponse.explanation, // Alias for GlobalMic
+      // Note-specific fields (extracted from params)
+      targetNodeId: parsedResponse.params?.target_node_id,
+      targetNodeTitle: parsedResponse.params?.target_node_title,
+      noteContent: parsedResponse.params?.note_content,
+    };
 
     console.log("Classified command:", classifiedCommand);
 

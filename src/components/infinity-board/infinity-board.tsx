@@ -74,10 +74,17 @@ export default function InfinityBoard() {
 						const selectedNode = nodes[0] ? nodes[0] : null;
 						console.log("Selected Node: ", selectedNode);
 						setSelectedNode(selectedNode);
-						if (selectedNode && selectedNode.type === "subtopic") {
+						// if (selectedNode && selectedNode.type === "subtopic") {
+						// 	setIsChatBarOpen();
+						// } else {
+						// 	closeChatBar();
+						// }
+						closeChatBar();
+					}}
+					onNodeDoubleClick={() => {
+						if (!isChatBarOpen) {
+							setSelectedNode(selectedNode);
 							setIsChatBarOpen();
-						} else {
-							closeChatBar();
 						}
 					}}
 					fitViewOptions={{ padding: 0.2 }}

@@ -12,7 +12,6 @@ import {
 	useMindMapActions,
 } from "@/store/hooks";
 import { edgeTypes } from "@/lib/edge-types-map";
-import { COLORS } from "../edges/mindmap-edge";
 
 export default function InfinityBoard() {
 	const {
@@ -64,9 +63,8 @@ export default function InfinityBoard() {
 					defaultEdgeOptions={{
 						type: "mindmap", // use your custom edge component
 						style: {
-							stroke: COLORS[relationType], // preview matches selected relation!
+							stroke: "#d1d5db", // light gray
 							strokeWidth: 2,
-							strokeDasharray: relationType === "background" ? "3 3" : "none",
 						},
 					}}
 					// This gives u info of the node u click on

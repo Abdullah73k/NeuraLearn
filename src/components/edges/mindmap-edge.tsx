@@ -162,10 +162,9 @@ export default function MindMapEdge({
 				id={id}
 				path={edgePath}
 				style={{
-					stroke: COLORS[relation],
+					stroke: isInActivePath ? COLORS[relation] : "#d1d5db",
 					strokeWidth: isInActivePath ? 3 : 2,
-					strokeDasharray: relation === "background" ? "3 3" : "none",
-					transition: "stroke-width 0.3s ease",
+					transition: "stroke-width 0.3s ease, stroke 0.3s ease",
 				}}
 			/>
 

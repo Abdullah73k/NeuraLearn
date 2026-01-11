@@ -33,6 +33,7 @@ export default function PanelTopMiddle() {
 					}}
 					disabled={isDeleteDisabled}
 				/>
+				<MenubarOption option="Auto Layout" onClick={rebalanceLayout} />
 			</Menubar>
 		</Panel>
 	);

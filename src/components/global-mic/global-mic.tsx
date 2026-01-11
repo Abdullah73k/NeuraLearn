@@ -51,7 +51,7 @@ export default function GlobalMic() {
   // Get nodes for context
   const nodes = activeWorkspace?.nodes || [];
 
-  const startRecording = useCallback(async () => {
+  const startRecording =  async() => {
     try {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -83,7 +83,7 @@ export default function GlobalMic() {
       console.error("Failed to start recording:", err);
       setError("Failed to access microphone");
     }
-  }, []);
+  };
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && state === "recording") {

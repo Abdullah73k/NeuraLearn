@@ -1,0 +1,12 @@
+.git
+.next
+dist
+node_modules
+Dockerfile
+docker-compose.yml
+.env
+.env.*
+npm-debug.log
+.vscode
+.idea
+doppler.env

@@ -1,18 +1,20 @@
 services:
-  app:
+  neuralearn:
     build:
       context: ./
       dockerfile: Dockerfile
-      target: dep
+      target: dev
     image: neuralearn
     container_name: neuralearn-app
     ports:
-      - "3000:3000"
+      - "4000:3000"
     env_file:
       - .env.local
+    environment:
+      - CI=true
     volumes:
       - .:/app
-      - /app/node_modules
-      - /app/node_modules/.bin
-      - /app/.next
-    command: pnpm run dev
+      - node_modules-brain-graph:/app/node_modules
+
+volumes:
+  node_modules-brain-graph:

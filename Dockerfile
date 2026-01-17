@@ -1,5 +1,12 @@
 FROM node:24.12.0-slim AS base
 
+RUN corepack enable && corepack enable npm
+
+FROM base as dev 
+
+WORKDIR /app
+
+CMD [ "sh", "-lc", "[ -f node_modules/.modules.yaml ] && [ -f node_modules/next/package.json ] || pnpm install; pnpm run dev" ]
 
 
 FROM base AS dep 
@@ -8,7 +15,7 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 
-RUN corepack enable && corepack enable npm && pnpm install --frozen-lockfile 
+RUN pnpm install --frozen-lockfile 
 
 
 
@@ -20,7 +27,7 @@ COPY --from=dep /app/node_modules ./node_modules
 
 COPY . .
 
-RUN corepack enable && corepack enable npm && pnpm run build
+RUN pnpm run build
 
 
 
